@@ -8,6 +8,8 @@
     <string>Loqui</string>
     <key>CFBundleExecutable</key>
     <string>Loqui</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
     <key>CFBundleIdentifier</key>
     <string>com.benniekingwood.loqui</string>
     <key>CFBundleInfoDictionaryVersion</key>

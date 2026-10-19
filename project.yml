@@ -39,6 +39,8 @@ targets:
     platform: macOS
     sources:
       - path: Loqui/Sources/Loqui
+      - path: Loqui/AppIcon.icns
+        buildPhase: resources
     dependencies:
       - package: FluidAudio
     settings:
