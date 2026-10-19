@@ -7,6 +7,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let hotKeyController: HotKeyController
     let audioInputSelection: AudioInputSelection
     private var engineStateObservation: AnyCancellable?
+    private var shortcutObservation: AnyCancellable?
+    private lazy var settingsWindowController = SettingsWindowController(
+        transcriptionEngine: transcriptionEngine,
+        hotKeyController: hotKeyController,
+        audioInputSelection: audioInputSelection
+    )
 
     override convenience init() {
         let audioInputSelection = AudioInputSelection()
@@ -29,6 +35,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        shortcutObservation = hotKeyController.$shortcut
+            .sink { [weak self] shortcut in
+                self?.transcriptionEngine.shortcut = shortcut
+            }
         hotKeyController.register { [weak self] intent in
             switch intent {
             case .start:
@@ -50,9 +60,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         transcriptionEngine.prepareDependencies()
     }
 
+    /// Loqui has no main window, so clicking its Dock icon opens Settings.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        showSettings()
+        return true
+    }
+
+    func showSettings() {
+        settingsWindowController.show()
+    }
+
     func applicationWillTerminate(_ notification: Notification) {
         engineStateObservation?.cancel()
         engineStateObservation = nil
+        shortcutObservation?.cancel()
+        shortcutObservation = nil
         hotKeyController.unregister()
         // This call is intentionally synchronous: it does not return until an
         // active transcription has been cancelled.

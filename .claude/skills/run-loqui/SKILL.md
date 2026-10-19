@@ -35,6 +35,7 @@ D=.claude/skills/run-loqui/driver.sh
 $D launch        # quits any running copy, launches, waits for hotkey + model
 $D status        # pid, memory, CPU, menu bar icon window and position
 $D ss mytag      # screenshots into $TMPDIR/loqui-driver/, paths printed
+open -a "$PWD/Loqui.app"   # while running: opens the Settings window (Dock reopen)
 $D logs 10       # last 10 minutes of the app's unified log
 $D quit
 ```
@@ -45,7 +46,7 @@ A healthy `launch` prints:
 pid 93757
 menu bar icon: window 54332 exists but is OFF-SCREEN (menu bar full / hidden behind the notch)
 waiting for model (up to 90s)...
-hotkey: right-Option monitor registered
+hotkey: rightOption monitor registered
 model: Parakeet TDT 0.6B v2 ready
 ```
 
@@ -75,7 +76,7 @@ seconds the first time and under 1 second after that.
 ## Test
 
 ```bash
-.claude/skills/run-loqui/driver.sh test   # 162 tests, 3 skipped by design
+.claude/skills/run-loqui/driver.sh test   # 183 tests, 3 skipped by design
 ```
 
 ## Run (human path)

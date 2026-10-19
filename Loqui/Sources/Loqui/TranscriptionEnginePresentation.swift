@@ -17,14 +17,17 @@ extension TranscriptionEngine {
         }
     }
 
-    static func presentation(for outcome: TranscriptionOutcome) -> Presentation {
+    static func presentation(
+        for outcome: TranscriptionOutcome,
+        shortcut: DictationShortcut = .default
+    ) -> Presentation {
         switch outcome {
         case .success:
             Presentation(state: .delivering, statusText: "Delivering transcription…")
         case .noSpeech:
             Presentation(
                 state: .idle,
-                statusText: "No speech detected. Hold Right Option to record, double-tap to lock"
+                statusText: "No speech detected. \(shortcut.readyHint)"
             )
         case let .modelUnavailable(failure):
             presentation(for: failure)
@@ -54,18 +57,21 @@ extension TranscriptionEngine {
         case .inferenceFailed:
             Presentation(state: .failed, statusText: "Parakeet transcription failed. Please try again.")
         case .cancelled:
-            Presentation(state: .failed, statusText: "Transcription was cancelled. Hold Right Option to try again.")
+            Presentation(state: .failed, statusText: "Transcription was cancelled. \(shortcut.retryHint)")
         }
     }
 
-    static func presentation(for outcome: DeliveryOutcome) -> Presentation {
+    static func presentation(
+        for outcome: DeliveryOutcome,
+        shortcut: DictationShortcut = .default
+    ) -> Presentation {
         switch outcome {
         case .inserted:
-            Presentation(state: .idle, statusText: "Inserted! Hold Right Option to record, double-tap to lock")
+            Presentation(state: .idle, statusText: "Inserted! \(shortcut.readyHint)")
         case let .pasted(restoration):
             switch restoration {
             case .restored:
-                Presentation(state: .idle, statusText: "Pasted! Hold Right Option to record, double-tap to lock")
+                Presentation(state: .idle, statusText: "Pasted! \(shortcut.readyHint)")
             case .skippedBecauseClipboardChanged:
                 Presentation(
                     state: .idle,
@@ -125,7 +131,7 @@ extension TranscriptionEngine {
         case .cancelled:
             Presentation(
                 state: .failed,
-                statusText: "Delivery was cancelled. Hold Right Option to try again."
+                statusText: "Delivery was cancelled. \(shortcut.retryHint)"
             )
         }
     }
