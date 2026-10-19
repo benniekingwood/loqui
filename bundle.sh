@@ -150,6 +150,9 @@ for resource_bundle in "$PRODUCT_DIRECTORY"/*.bundle; do
     [[ -d "$resource_bundle" ]] || continue
     copied_bundle="$RESOURCES/$(basename -- "$resource_bundle")"
     cp -R -- "$resource_bundle" "$copied_bundle"
+    # SwiftPM emits some resources read-only. macOS refuses to strip their
+    # provenance xattr until they are writable, which breaks `xattr -cr` below.
+    chmod -R u+w "$copied_bundle"
     # The native SwiftPM build system emits flat resource bundles without an
     # Info.plist, which codesign rejects. Give them the standard macOS layout
     # that the Swift Build backend already produces.
