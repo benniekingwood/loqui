@@ -44,6 +44,21 @@ final class CapturedAudioSinkTests: XCTestCase {
         XCTAssertTrue(sink.close())
     }
 
+    func testRecentPeakResetsOnReadWithoutTouchingSessionPeak() throws {
+        let url = temporaryURL()
+        defer { try? FileManager.default.removeItem(at: url) }
+        let sink = try makeSink(at: url)
+        XCTAssertTrue(sink.beginCapturing())
+        try sink.append(makeBuffer(sampleRate: 16_000, amplitude: 0.5))
+        let peak = sink.peakLevel
+        XCTAssertEqual(sink.takeRecentPeakAmplitude(), 0.5, accuracy: 0.01)
+        XCTAssertEqual(sink.takeRecentPeakAmplitude(), 0)
+        try sink.append(makeBuffer(sampleRate: 16_000, amplitude: 0.1))
+        XCTAssertEqual(sink.takeRecentPeakAmplitude(), 0.1, accuracy: 0.01)
+        XCTAssertEqual(sink.peakLevel, peak)
+        XCTAssertTrue(sink.close())
+    }
+
     func testSampleRateChangeDoesNotLoseCaptureAndLateBuffersCannotReopenClosedFile() throws {
         let url = temporaryURL()
         defer { try? FileManager.default.removeItem(at: url) }

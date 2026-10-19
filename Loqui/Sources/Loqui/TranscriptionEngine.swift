@@ -57,6 +57,14 @@ final class TranscriptionEngine: ObservableObject {
     /// `HotKeyController.shortcut` by the app delegate.
     var shortcut: DictationShortcut = .default
 
+    /// Loudest input since the previous call while recording, else 0. Polled by
+    /// the recording overlay rather than published, so level changes do not
+    /// re-render every view that observes the engine.
+    func takeInputLevel() -> Float {
+        guard state == .recording, let currentRecorder else { return 0 }
+        return currentRecorder.takeRecentPeakAmplitude()
+    }
+
     var isInteractive: Bool {
         state == .idle || state == .failed
     }

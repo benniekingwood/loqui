@@ -9,6 +9,7 @@ struct SettingsView: View {
     @EnvironmentObject var audioInputSelection: AudioInputSelection
     @ObservedObject var recorder: ShortcutRecorder
     @AppStorage(RecordingCuePreference.defaultsKey) private var playsSoundCues = true
+    @AppStorage(RecordingOverlayPreference.defaultsKey) private var showsRecordingOverlay = true
 
     var body: some View {
         Form {
@@ -76,6 +77,10 @@ struct SettingsView: View {
                 Toggle(isOn: $playsSoundCues) {
                     Text("Sound cues")
                     Text("Play a chime when recording starts and stops.")
+                }
+                Toggle(isOn: $showsRecordingOverlay) {
+                    Text("Recording indicator")
+                    Text("Show a floating bar above the Dock while Loqui listens and transcribes.")
                 }
             }
 

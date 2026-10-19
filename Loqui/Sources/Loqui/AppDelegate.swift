@@ -8,6 +8,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let audioInputSelection: AudioInputSelection
     private var engineStateObservation: AnyCancellable?
     private var shortcutObservation: AnyCancellable?
+    private lazy var recordingOverlay = RecordingOverlayController(engine: transcriptionEngine)
     private lazy var settingsWindowController = SettingsWindowController(
         transcriptionEngine: transcriptionEngine,
         hotKeyController: hotKeyController,
@@ -57,6 +58,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     break
                 }
             }
+        recordingOverlay.start()
         transcriptionEngine.prepareDependencies()
     }
 
@@ -75,6 +77,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         engineStateObservation = nil
         shortcutObservation?.cancel()
         shortcutObservation = nil
+        recordingOverlay.stop()
         hotKeyController.unregister()
         // This call is intentionally synchronous: it does not return until an
         // active transcription has been cancelled.

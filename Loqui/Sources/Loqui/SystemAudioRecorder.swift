@@ -29,6 +29,7 @@ final class SystemAudioRecorder: NSObject, AudioRecording {
 
     var isRecording: Bool { running }
     var peakLevel: Float { sink.peakLevel }
+    func takeRecentPeakAmplitude() -> Float { sink.takeRecentPeakAmplitude() }
     var inputDeviceName: String { activeDevice?.name ?? "Microphone" }
 
     init(
