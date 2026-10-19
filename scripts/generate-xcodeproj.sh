@@ -6,7 +6,7 @@ set -euo pipefail
 # project.yml is a plain spec that works with a bare `xcodegen generate`, so its
 # names are written literally rather than templated. This script is the checked
 # entry point: it fails when those literals drift from the canonical sources
-# (TalkText/Info.plist and VERSION) rather than letting a stale project build an
+# (Loqui/Info.plist and VERSION) rather than letting a stale project build an
 # app whose identity no longer matches a release.
 #
 # The generated .xcodeproj is disposable build output, not tracked source.
@@ -15,7 +15,7 @@ set -euo pipefail
 SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 REPOSITORY_ROOT="$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd -P)"
 SPEC="$REPOSITORY_ROOT/project.yml"
-SOURCE_INFO="$REPOSITORY_ROOT/TalkText/Info.plist"
+SOURCE_INFO="$REPOSITORY_ROOT/Loqui/Info.plist"
 
 fail() {
     echo "error: $*" >&2
@@ -45,10 +45,10 @@ spec_value() {
     jq -er "$1" <<< "$SPEC_JSON" 2>/dev/null || fail "project.yml is missing $2"
 }
 
-SPEC_PRODUCT_NAME="$(spec_value '.targets.TalkText.settings.base.PRODUCT_NAME' 'the TalkText target PRODUCT_NAME')"
-SPEC_BUNDLE_IDENTIFIER="$(spec_value '.targets.TalkText.settings.base.PRODUCT_BUNDLE_IDENTIFIER' 'the TalkText target PRODUCT_BUNDLE_IDENTIFIER')"
+SPEC_PRODUCT_NAME="$(spec_value '.targets.Loqui.settings.base.PRODUCT_NAME' 'the Loqui target PRODUCT_NAME')"
+SPEC_BUNDLE_IDENTIFIER="$(spec_value '.targets.Loqui.settings.base.PRODUCT_BUNDLE_IDENTIFIER' 'the Loqui target PRODUCT_BUNDLE_IDENTIFIER')"
 SPEC_DEPLOYMENT_TARGET="$(spec_value '.options.deploymentTarget.macOS' 'options.deploymentTarget.macOS')"
-SPEC_INFOPLIST="$(spec_value '.targets.TalkText.settings.base.INFOPLIST_FILE' 'the TalkText target INFOPLIST_FILE')"
+SPEC_INFOPLIST="$(spec_value '.targets.Loqui.settings.base.INFOPLIST_FILE' 'the Loqui target INFOPLIST_FILE')"
 
 drift() {
     fail "project.yml $1 ($2) differs from canonical Info.plist $3 ($4). Update project.yml."
@@ -60,8 +60,8 @@ drift() {
     drift PRODUCT_BUNDLE_IDENTIFIER "$SPEC_BUNDLE_IDENTIFIER" CFBundleIdentifier "$EXPECTED_BUNDLE_IDENTIFIER"
 [[ "$SPEC_DEPLOYMENT_TARGET" == "$EXPECTED_MINIMUM_SYSTEM_VERSION" ]] || \
     drift deploymentTarget.macOS "$SPEC_DEPLOYMENT_TARGET" LSMinimumSystemVersion "$EXPECTED_MINIMUM_SYSTEM_VERSION"
-[[ "$SPEC_INFOPLIST" == 'TalkText/Info.plist' ]] || \
-    fail "project.yml INFOPLIST_FILE ($SPEC_INFOPLIST) must be the canonical TalkText/Info.plist"
+[[ "$SPEC_INFOPLIST" == 'Loqui/Info.plist' ]] || \
+    fail "project.yml INFOPLIST_FILE ($SPEC_INFOPLIST) must be the canonical Loqui/Info.plist"
 
 # Prove the project's version source is usable before generating.
 VERSION="$("$SCRIPT_DIR/read-version.sh")"
@@ -76,7 +76,7 @@ SIGNING_SUMMARY='ad-hoc (Accessibility and microphone will re-prompt after every
 #
 # A keychain can hold Apple Development identities for several teams, so prefer
 # the project's team and fall back to the first identity for other checkouts.
-PREFERRED_TEAM_ID="${TALKTEXT_DEVELOPMENT_TEAM:-K78G42H4U2}"
+PREFERRED_TEAM_ID="${LOQUI_DEVELOPMENT_TEAM:-K78G42H4U2}"
 IDENTITY=''
 TEAM_ID=''
 while IFS= read -r candidate; do
@@ -112,9 +112,9 @@ cd "$REPOSITORY_ROOT"
 xcodegen generate --spec project.yml --project .
 
 echo
-echo "==> Generated TalkText.xcodeproj (development only)"
+echo "==> Generated Loqui.xcodeproj (development only)"
 echo "    Bundle identifier: $EXPECTED_BUNDLE_IDENTIFIER"
 echo "    Signing:           $SIGNING_SUMMARY"
 echo "    Version at build:  $VERSION (injected from VERSION)"
-echo "    Open with: open TalkText.xcodeproj"
+echo "    Open with: open Loqui.xcodeproj"
 echo "    Release builds still come from ./bundle.sh, not this project."

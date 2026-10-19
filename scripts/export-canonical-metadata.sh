@@ -3,7 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 REPOSITORY_ROOT="$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd -P)"
-SOURCE_INFO="$REPOSITORY_ROOT/TalkText/Info.plist"
+SOURCE_INFO="$REPOSITORY_ROOT/Loqui/Info.plist"
 OUTPUT_FILE="${1:-${GITHUB_ENV:-}}"
 
 fail() {
@@ -39,7 +39,7 @@ validate_path_component CFBundleExecutable "$EXECUTABLE_NAME"
     fail "canonical LSMinimumSystemVersion is not a numeric version: $MINIMUM_SYSTEM_VERSION"
 
 {
-    printf 'TALKTEXT_BUNDLE_NAME=%s\n' "$BUNDLE_NAME"
-    printf 'TALKTEXT_EXECUTABLE_NAME=%s\n' "$EXECUTABLE_NAME"
-    printf 'TALKTEXT_MINIMUM_SYSTEM_VERSION=%s\n' "$MINIMUM_SYSTEM_VERSION"
+    printf 'LOQUI_BUNDLE_NAME=%s\n' "$BUNDLE_NAME"
+    printf 'LOQUI_EXECUTABLE_NAME=%s\n' "$EXECUTABLE_NAME"
+    printf 'LOQUI_MINIMUM_SYSTEM_VERSION=%s\n' "$MINIMUM_SYSTEM_VERSION"
 } >> "$OUTPUT_FILE"

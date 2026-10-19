@@ -16,7 +16,7 @@ import urllib.request
 import uuid
 
 ROOT = Path(__file__).resolve().parent.parent
-CANONICAL_MANIFEST = ROOT / "TalkText/Sources/TalkText/Resources/parakeet-model.json"
+CANONICAL_MANIFEST = ROOT / "Loqui/Sources/Loqui/Resources/parakeet-model.json"
 
 
 def load_manifest(path):
@@ -71,7 +71,7 @@ def download_file(staging, manifest, item):
     url = f"https://huggingface.co/{manifest['repository']}/resolve/{manifest['revision']}/{name}"
     for attempt in range(3):
         try:
-            request = urllib.request.Request(url, headers={"User-Agent": "TalkText-model-setup/2"})
+            request = urllib.request.Request(url, headers={"User-Agent": "Loqui-model-setup/2"})
             with urllib.request.urlopen(request, timeout=120) as response, path.open("wb") as destination:
                 total = 0
                 for block in iter(lambda: response.read(1024 * 1024), b""):
@@ -124,7 +124,7 @@ def main():
     parser.add_argument("command", choices=["install-model", "verify-model", "model-name"])
     parser.add_argument("path", nargs="?")
     arguments = parser.parse_args()
-    manifest = load_manifest(os.environ.get("TALKTEXT_MODEL_MANIFEST", str(CANONICAL_MANIFEST)))
+    manifest = load_manifest(os.environ.get("LOQUI_MODEL_MANIFEST", str(CANONICAL_MANIFEST)))
     if arguments.command == "model-name":
         print(manifest["directory"])
         return

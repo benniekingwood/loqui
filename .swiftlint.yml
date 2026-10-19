@@ -1,12 +1,12 @@
 strict: true
 
 included:
-  - TalkText/Sources
-  - TalkText/Tests
+  - Loqui/Sources
+  - Loqui/Tests
 
 excluded:
-  - TalkText/.build
-  - TalkText/.swiftpm
+  - Loqui/.build
+  - Loqui/.swiftpm
 
 # These thresholds capture regressions without forcing unrelated large-file
 # refactors as part of the release hardening work.

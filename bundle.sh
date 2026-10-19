@@ -2,12 +2,12 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
-PACKAGE_DIR="$SCRIPT_DIR/TalkText"
+PACKAGE_DIR="$SCRIPT_DIR/Loqui"
 INFO_TEMPLATE="$PACKAGE_DIR/Info.plist"
-ENTITLEMENTS="$PACKAGE_DIR/TalkText.entitlements"
+ENTITLEMENTS="$PACKAGE_DIR/Loqui.entitlements"
 CANONICAL_DEPENDENCY_MANIFEST="$SCRIPT_DIR/dependencies.env"
-DEPENDENCY_MANIFEST="${TALKTEXT_DEPENDENCY_MANIFEST:-$CANONICAL_DEPENDENCY_MANIFEST}"
-SIGNING_MODE="${TALKTEXT_SIGNING_MODE:-adhoc}"
+DEPENDENCY_MANIFEST="${LOQUI_DEPENDENCY_MANIFEST:-$CANONICAL_DEPENDENCY_MANIFEST}"
+SIGNING_MODE="${LOQUI_SIGNING_MODE:-adhoc}"
 ARCHITECTURES=(arm64 x86_64)
 
 fail() {
@@ -15,10 +15,10 @@ fail() {
     exit 1
 }
 
-if [[ -n "${TALKTEXT_VERSION_FILE:-}" ]]; then
+if [[ -n "${LOQUI_VERSION_FILE:-}" ]]; then
     fail "bundle does not accept a VERSION file override"
 fi
-unset TALKTEXT_VERSION_FILE
+unset LOQUI_VERSION_FILE
 
 if [[ "$SIGNING_MODE" == 'developer-id' && "$DEPENDENCY_MANIFEST" != "$CANONICAL_DEPENDENCY_MANIFEST" ]]; then
     fail "Developer ID bundling does not accept a dependency manifest override"
@@ -59,14 +59,14 @@ source "$DEPENDENCY_MANIFEST"
 [[ -n "${MODEL_DIRECTORY_NAME:-}" ]] || fail "dependency manifest does not define MODEL_DIRECTORY_NAME"
 validate_path_component MODEL_DIRECTORY_NAME "$MODEL_DIRECTORY_NAME"
 CANONICAL_MODEL_MANIFEST="$SCRIPT_DIR/$MODEL_MANIFEST_RELATIVE_PATH"
-MODEL_MANIFEST="${TALKTEXT_MODEL_MANIFEST:-$CANONICAL_MODEL_MANIFEST}"
+MODEL_MANIFEST="${LOQUI_MODEL_MANIFEST:-$CANONICAL_MODEL_MANIFEST}"
 if [[ "$SIGNING_MODE" == 'developer-id' && "$MODEL_MANIFEST" != "$CANONICAL_MODEL_MANIFEST" ]]; then
     fail "Developer ID bundling does not accept a model manifest override"
 fi
-export TALKTEXT_MODEL_MANIFEST="$MODEL_MANIFEST"
+export LOQUI_MODEL_MANIFEST="$MODEL_MANIFEST"
 
 VERSION="$("$SCRIPT_DIR/scripts/read-version.sh")"
-MODEL_PATH="${TALKTEXT_MODEL_PATH:-$SCRIPT_DIR/models/$MODEL_DIRECTORY_NAME}"
+MODEL_PATH="${LOQUI_MODEL_PATH:-$SCRIPT_DIR/models/$MODEL_DIRECTORY_NAME}"
 
 case "$SIGNING_MODE" in
     adhoc)
@@ -74,19 +74,19 @@ case "$SIGNING_MODE" in
         TIMESTAMP_ARGUMENT='--timestamp=none'
         ;;
     apple-development)
-        SIGNING_IDENTITY="${TALKTEXT_SIGNING_IDENTITY:-}"
-        [[ -n "$SIGNING_IDENTITY" ]] || fail "TALKTEXT_SIGNING_IDENTITY is required for Apple Development signing"
-        [[ -n "${TALKTEXT_EXPECTED_TEAM_ID:-}" ]] || \
-            fail "TALKTEXT_EXPECTED_TEAM_ID is required for Apple Development signing"
+        SIGNING_IDENTITY="${LOQUI_SIGNING_IDENTITY:-}"
+        [[ -n "$SIGNING_IDENTITY" ]] || fail "LOQUI_SIGNING_IDENTITY is required for Apple Development signing"
+        [[ -n "${LOQUI_EXPECTED_TEAM_ID:-}" ]] || \
+            fail "LOQUI_EXPECTED_TEAM_ID is required for Apple Development signing"
         TIMESTAMP_ARGUMENT='--timestamp=none'
         ;;
     developer-id)
-        SIGNING_IDENTITY="${TALKTEXT_SIGNING_IDENTITY:-}"
-        [[ -n "$SIGNING_IDENTITY" ]] || fail "TALKTEXT_SIGNING_IDENTITY is required for Developer ID signing"
+        SIGNING_IDENTITY="${LOQUI_SIGNING_IDENTITY:-}"
+        [[ -n "$SIGNING_IDENTITY" ]] || fail "LOQUI_SIGNING_IDENTITY is required for Developer ID signing"
         TIMESTAMP_ARGUMENT='--timestamp'
         ;;
     *)
-        fail "TALKTEXT_SIGNING_MODE must be 'adhoc', 'apple-development', or 'developer-id'"
+        fail "LOQUI_SIGNING_MODE must be 'adhoc', 'apple-development', or 'developer-id'"
         ;;
 esac
 
@@ -124,10 +124,10 @@ X86_64_PRODUCT="$(build_product x86_64)"
 # Verify the exact dependency immediately before bundle assembly. The CI path
 # supplies a tiny pinned fixture manifest; distributable releases use the
 # production manifest and therefore verify the complete model digest.
-TALKTEXT_DEPENDENCY_MANIFEST="$DEPENDENCY_MANIFEST" \
+LOQUI_DEPENDENCY_MANIFEST="$DEPENDENCY_MANIFEST" \
     "$SCRIPT_DIR/scripts/dependency-tool.sh" verify-model "$MODEL_PATH"
 
-WORK_DIR="$(mktemp -d "$SCRIPT_DIR/.talktext-bundle.XXXXXX")"
+WORK_DIR="$(mktemp -d "$SCRIPT_DIR/.loqui-bundle.XXXXXX")"
 cleanup() {
     rm -rf -- "$WORK_DIR"
 }
@@ -143,7 +143,7 @@ echo "==> Assembling canonical bundle metadata and resources..."
 lipo -create "$ARM64_PRODUCT" "$X86_64_PRODUCT" -output "$MACOS/$EXECUTABLE_NAME"
 chmod 755 "$MACOS/$EXECUTABLE_NAME"
 cp -R -- "$MODEL_PATH" "$RESOURCES/models/$MODEL_DIRECTORY_NAME"
-# SwiftPM resource bundles are required by Bundle.module in TalkText and FluidAudio.
+# SwiftPM resource bundles are required by Bundle.module in Loqui and FluidAudio.
 cp -- "$CANONICAL_MODEL_MANIFEST" "$RESOURCES/parakeet-model.json"
 PRODUCT_DIRECTORY="$(dirname -- "$ARM64_PRODUCT")"
 for resource_bundle in "$PRODUCT_DIRECTORY"/*.bundle; do
@@ -160,7 +160,7 @@ for resource_bundle in "$PRODUCT_DIRECTORY"/*.bundle; do
         mkdir -p "$copied_bundle/Contents"
         mv -- "$flat_contents" "$copied_bundle/Contents/Resources"
         /usr/libexec/PlistBuddy \
-            -c "Add :CFBundleIdentifier string talktext.${bundle_name//_/.}.resources" \
+            -c "Add :CFBundleIdentifier string loqui.${bundle_name//_/.}.resources" \
             -c "Add :CFBundleName string $bundle_name" \
             -c "Add :CFBundlePackageType string BNDL" \
             -c "Add :CFBundleInfoDictionaryVersion string 6.0" \
@@ -172,16 +172,16 @@ SDK_SOURCE="$PACKAGE_DIR/.build/release-arm64/checkouts/FluidAudio"
 [[ -r "$SDK_SOURCE/LICENSE" ]] || fail "reviewed FluidAudio license is missing"
 cp -- "$SDK_SOURCE/LICENSE" "$RESOURCES/Licenses/FluidAudio-Apache-2.0.txt"
 cp -R -- "$SDK_SOURCE/ThirdPartyLicenses" "$RESOURCES/Licenses/FluidAudio-ThirdParty"
-cp -- "$PACKAGE_DIR/Sources/TalkText/Resources/ParakeetNOTICE.txt" "$RESOURCES/Licenses/ParakeetNOTICE.txt"
+cp -- "$PACKAGE_DIR/Sources/Loqui/Resources/ParakeetNOTICE.txt" "$RESOURCES/Licenses/ParakeetNOTICE.txt"
 # SwiftPM checkouts are read-only; the copied notices must permit xattr cleanup.
 chmod -R u+w "$RESOURCES/Licenses"
-TALKTEXT_DEPENDENCY_MANIFEST="$DEPENDENCY_MANIFEST" \
+LOQUI_DEPENDENCY_MANIFEST="$DEPENDENCY_MANIFEST" \
     "$SCRIPT_DIR/scripts/dependency-tool.sh" verify-model "$RESOURCES/models/$MODEL_DIRECTORY_NAME"
 
 cp -- "$INFO_TEMPLATE" "$CONTENTS/Info.plist"
 if /usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$CONTENTS/Info.plist" >/dev/null 2>&1 || \
     /usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$CONTENTS/Info.plist" >/dev/null 2>&1; then
-    fail "TalkText/Info.plist must not duplicate versions; VERSION is canonical"
+    fail "Loqui/Info.plist must not duplicate versions; VERSION is canonical"
 fi
 /usr/libexec/PlistBuddy -c "Add :CFBundleVersion string $VERSION" "$CONTENTS/Info.plist"
 /usr/libexec/PlistBuddy -c "Add :CFBundleShortVersionString string $VERSION" "$CONTENTS/Info.plist"
@@ -204,8 +204,8 @@ codesign \
     --sign "$SIGNING_IDENTITY" \
     "$WORK_BUNDLE"
 
-TALKTEXT_DEPENDENCY_MANIFEST="$DEPENDENCY_MANIFEST" \
-TALKTEXT_EXPECTED_SIGNATURE="$SIGNING_MODE" \
+LOQUI_DEPENDENCY_MANIFEST="$DEPENDENCY_MANIFEST" \
+LOQUI_EXPECTED_SIGNATURE="$SIGNING_MODE" \
     "$SCRIPT_DIR/scripts/verify-bundle.sh" "$WORK_BUNDLE"
 
 rm -rf -- "$BUNDLE_PATH"

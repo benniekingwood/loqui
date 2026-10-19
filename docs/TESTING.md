@@ -1,9 +1,9 @@
-# Testing TalkText
+# Testing Loqui
 
 Run the complete engine suite from the repository root:
 
 ```sh
-swift test --package-path TalkText -Xswiftc -warnings-as-errors
+swift test --package-path Loqui -Xswiftc -warnings-as-errors
 ```
 
 The safety-critical coverage expectation is behavioral rather than a single
@@ -33,7 +33,7 @@ To check the actual system default microphone after granting microphone access,
 run:
 
 ```sh
-TALKTEXT_MICROPHONE_SMOKE_TEST=1 swift test --package-path TalkText --filter SystemAudioRecorderTests.testDefaultMicrophoneDeliversWarmupBuffers
+LOQUI_MICROPHONE_SMOKE_TEST=1 swift test --package-path Loqui --filter SystemAudioRecorderTests.testDefaultMicrophoneDeliversWarmupBuffers
 ```
 
 This opens the real input and requires incoming warm-up buffers. It discards the
@@ -59,7 +59,7 @@ preview without recording the microphone or posting keystrokes:
 
 ```sh
 ./scripts/dependency-tool.sh install-model
-TALKTEXT_PARAKEET_SMOKE_TEST=1 swift test --package-path TalkText --filter ParakeetIntegrationTests
+LOQUI_PARAKEET_SMOKE_TEST=1 swift test --package-path Loqui --filter ParakeetIntegrationTests
 ```
 
 The smoke test reports short-draft latency and always checks final and draft
@@ -69,7 +69,7 @@ On an otherwise idle native Apple Silicon Mac, also enforce the two-second draft
 latency budget with:
 
 ```sh
-TALKTEXT_PARAKEET_SMOKE_TEST=1 TALKTEXT_PARAKEET_LATENCY_TEST=1 swift test --package-path TalkText --filter ParakeetIntegrationTests
+LOQUI_PARAKEET_SMOKE_TEST=1 LOQUI_PARAKEET_LATENCY_TEST=1 swift test --package-path Loqui --filter ParakeetIntegrationTests
 ```
 
 The integration fixture `tests/fixtures/jfk.wav` comes from
@@ -78,20 +78,20 @@ The integration fixture `tests/fixtures/jfk.wav` comes from
 It contains public speech, not a user's recording. Native CI runs real inference on
 Apple Silicon and tests the unsupported-hardware preflight on Intel. Core ML
 prediction with these assets crashed under Rosetta during local verification;
-TalkText rejects x86_64 inference before loading any model.
+Loqui rejects x86_64 inference before loading any model.
 
 Useful focused commands include:
 
 ```sh
-swift test --package-path TalkText --filter ParakeetTranscriberTests
-swift test --package-path TalkText --filter TranscriptionEngineStateTests
-swift test --package-path TalkText --filter TextDeliveryTests
-swift test --package-path TalkText --filter PrivacyLoggingTests
+swift test --package-path Loqui --filter ParakeetTranscriberTests
+swift test --package-path Loqui --filter TranscriptionEngineStateTests
+swift test --package-path Loqui --filter TextDeliveryTests
+swift test --package-path Loqui --filter PrivacyLoggingTests
 ```
 
 Before merging, also run the same format and lint gates as CI:
 
 ```sh
 swiftlint lint --strict --config .swiftlint.yml
-swiftformat --lint --config .swiftformat TalkText/Sources TalkText/Tests
+swiftformat --lint --config .swiftformat Loqui/Sources Loqui/Tests
 ```

@@ -4,11 +4,11 @@ set -euo pipefail
 SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 REPOSITORY_ROOT="$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd -P)"
 APP_PATH="${1:-}"
-SOURCE_INFO="$REPOSITORY_ROOT/TalkText/Info.plist"
-SOURCE_ENTITLEMENTS="$REPOSITORY_ROOT/TalkText/TalkText.entitlements"
+SOURCE_INFO="$REPOSITORY_ROOT/Loqui/Info.plist"
+SOURCE_ENTITLEMENTS="$REPOSITORY_ROOT/Loqui/Loqui.entitlements"
 CANONICAL_DEPENDENCY_MANIFEST="$REPOSITORY_ROOT/dependencies.env"
-DEPENDENCY_MANIFEST="${TALKTEXT_DEPENDENCY_MANIFEST:-$CANONICAL_DEPENDENCY_MANIFEST}"
-EXPECTED_SIGNATURE="${TALKTEXT_EXPECTED_SIGNATURE:-adhoc}"
+DEPENDENCY_MANIFEST="${LOQUI_DEPENDENCY_MANIFEST:-$CANONICAL_DEPENDENCY_MANIFEST}"
+EXPECTED_SIGNATURE="${LOQUI_EXPECTED_SIGNATURE:-adhoc}"
 EXPECTED_ARCHITECTURES=(arm64 x86_64)
 
 fail() {
@@ -16,10 +16,10 @@ fail() {
     exit 1
 }
 
-if [[ -n "${TALKTEXT_VERSION_FILE:-}" ]]; then
+if [[ -n "${LOQUI_VERSION_FILE:-}" ]]; then
     fail "bundle verification does not accept a VERSION file override"
 fi
-unset TALKTEXT_VERSION_FILE
+unset LOQUI_VERSION_FILE
 
 if [[ "$EXPECTED_SIGNATURE" == 'developer-id' && "$DEPENDENCY_MANIFEST" != "$CANONICAL_DEPENDENCY_MANIFEST" ]]; then
     fail "Developer ID verification does not accept a dependency manifest override"
@@ -105,7 +105,7 @@ MINIMUM_SYSTEM_VERSION="$(plist_string "$FINAL_INFO" LSMinimumSystemVersion)" ||
     fail "final CFBundlePackageType differs from canonical Info.plist"
 [[ "$MINIMUM_SYSTEM_VERSION" == "$EXPECTED_MINIMUM_SYSTEM_VERSION" ]] || \
     fail "final LSMinimumSystemVersion differs from canonical Info.plist"
-[[ "$(plist_value "$FINAL_INFO" LSUIElement)" == 'true' ]] || fail "TalkText must remain a menu-bar-only app"
+[[ "$(plist_value "$FINAL_INFO" LSUIElement)" == 'true' ]] || fail "Loqui must remain a menu-bar-only app"
 [[ -n "$(plist_value "$FINAL_INFO" NSMicrophoneUsageDescription)" ]] || fail "microphone usage text is empty"
 
 EXECUTABLE="$APP_PATH/Contents/MacOS/$EXECUTABLE_NAME"
@@ -131,16 +131,16 @@ done
 source "$DEPENDENCY_MANIFEST"
 [[ -n "${MODEL_DIRECTORY_NAME:-}" ]] || fail "dependency manifest does not define MODEL_DIRECTORY_NAME"
 CANONICAL_MODEL_MANIFEST="$REPOSITORY_ROOT/$MODEL_MANIFEST_RELATIVE_PATH"
-MODEL_MANIFEST="${TALKTEXT_MODEL_MANIFEST:-$CANONICAL_MODEL_MANIFEST}"
+MODEL_MANIFEST="${LOQUI_MODEL_MANIFEST:-$CANONICAL_MODEL_MANIFEST}"
 if [[ "$EXPECTED_SIGNATURE" == 'developer-id' && "$MODEL_MANIFEST" != "$CANONICAL_MODEL_MANIFEST" ]]; then
     fail "Developer ID verification does not accept a model manifest override"
 fi
-export TALKTEXT_MODEL_MANIFEST="$MODEL_MANIFEST"
+export LOQUI_MODEL_MANIFEST="$MODEL_MANIFEST"
 BUNDLED_MODEL="$APP_PATH/Contents/Resources/models/$MODEL_DIRECTORY_NAME"
-[[ -r "$APP_PATH/Contents/Resources/parakeet-model.json" ]] || fail "TalkText model manifest resource is missing"
+[[ -r "$APP_PATH/Contents/Resources/parakeet-model.json" ]] || fail "Loqui model manifest resource is missing"
 cmp -s "$CANONICAL_MODEL_MANIFEST" "$APP_PATH/Contents/Resources/parakeet-model.json" || fail "bundled model manifest differs from the reviewed source"
 [[ -d "$APP_PATH/Contents/Resources/FluidAudio_FluidAudio.bundle" ]] || fail "FluidAudio resources are missing"
-TALKTEXT_DEPENDENCY_MANIFEST="$DEPENDENCY_MANIFEST" \
+LOQUI_DEPENDENCY_MANIFEST="$DEPENDENCY_MANIFEST" \
     "$SCRIPT_DIR/dependency-tool.sh" verify-model "$BUNDLED_MODEL"
 
 [[ -r "$APP_PATH/Contents/Resources/Licenses/ParakeetNOTICE.txt" ]] || fail "Parakeet attribution is missing"
@@ -160,23 +160,23 @@ case "$EXPECTED_SIGNATURE" in
         ;;
     apple-development)
         grep -Fq 'Authority=Apple Development:' <<< "$SIGNATURE_DETAILS" || fail "Apple Development authority is missing"
-        EXPECTED_TEAM_ID="${TALKTEXT_EXPECTED_TEAM_ID:-}"
-        [[ -n "$EXPECTED_TEAM_ID" ]] || fail "TALKTEXT_EXPECTED_TEAM_ID is required for development verification"
+        EXPECTED_TEAM_ID="${LOQUI_EXPECTED_TEAM_ID:-}"
+        [[ -n "$EXPECTED_TEAM_ID" ]] || fail "LOQUI_EXPECTED_TEAM_ID is required for development verification"
         grep -Fq "TeamIdentifier=$EXPECTED_TEAM_ID" <<< "$SIGNATURE_DETAILS" || fail "signature TeamIdentifier does not match"
         ;;
     developer-id)
         grep -Fq 'Authority=Developer ID Application:' <<< "$SIGNATURE_DETAILS" || fail "Developer ID authority is missing"
         grep -Eq '^Timestamp=' <<< "$SIGNATURE_DETAILS" || fail "secure signing timestamp is missing"
-        EXPECTED_TEAM_ID="${TALKTEXT_EXPECTED_TEAM_ID:-}"
-        [[ -n "$EXPECTED_TEAM_ID" ]] || fail "TALKTEXT_EXPECTED_TEAM_ID is required for release verification"
+        EXPECTED_TEAM_ID="${LOQUI_EXPECTED_TEAM_ID:-}"
+        [[ -n "$EXPECTED_TEAM_ID" ]] || fail "LOQUI_EXPECTED_TEAM_ID is required for release verification"
         grep -Fq "TeamIdentifier=$EXPECTED_TEAM_ID" <<< "$SIGNATURE_DETAILS" || fail "signature TeamIdentifier does not match"
         ;;
     *)
-        fail "TALKTEXT_EXPECTED_SIGNATURE must be 'adhoc', 'apple-development', or 'developer-id'"
+        fail "LOQUI_EXPECTED_SIGNATURE must be 'adhoc', 'apple-development', or 'developer-id'"
         ;;
 esac
 
-TEMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/talktext-verify.XXXXXX")"
+TEMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/loqui-verify.XXXXXX")"
 cleanup() {
     rm -rf -- "$TEMP_DIR"
 }
@@ -186,14 +186,14 @@ codesign --display --entitlements - --xml "$APP_PATH" >"$TEMP_DIR/embedded-entit
 plutil -convert xml1 -o "$TEMP_DIR/source-entitlements.xml" "$SOURCE_ENTITLEMENTS"
 plutil -convert xml1 -o "$TEMP_DIR/embedded-entitlements.xml" "$TEMP_DIR/embedded-entitlements.plist"
 cmp -s "$TEMP_DIR/source-entitlements.xml" "$TEMP_DIR/embedded-entitlements.xml" || \
-    fail "embedded signing entitlements differ from TalkText/TalkText.entitlements"
+    fail "embedded signing entitlements differ from Loqui/Loqui.entitlements"
 
-if [[ "${TALKTEXT_REQUIRE_NOTARIZATION:-0}" == '1' ]]; then
+if [[ "${LOQUI_REQUIRE_NOTARIZATION:-0}" == '1' ]]; then
     xcrun stapler validate -v "$APP_PATH"
     spctl --assess --type execute --verbose=4 "$APP_PATH"
 fi
 
-if [[ "${TALKTEXT_X86_64_SMOKE_TEST:-0}" == '1' ]]; then
+if [[ "${LOQUI_X86_64_SMOKE_TEST:-0}" == '1' ]]; then
     SMOKE_LOG="$TEMP_DIR/x86_64-smoke.log"
     /usr/bin/arch -x86_64 "$EXECUTABLE" >"$SMOKE_LOG" 2>&1 &
     smoke_pid=$!

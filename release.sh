@@ -3,17 +3,17 @@ set -euo pipefail
 
 SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 DEPENDENCY_MANIFEST="$SCRIPT_DIR/dependencies.env"
-SOURCE_INFO="$SCRIPT_DIR/TalkText/Info.plist"
-RELEASE_TAG="${TALKTEXT_RELEASE_TAG:-${GITHUB_REF_NAME:-}}"
+SOURCE_INFO="$SCRIPT_DIR/Loqui/Info.plist"
+RELEASE_TAG="${LOQUI_RELEASE_TAG:-${GITHUB_REF_NAME:-}}"
 DIST_DIR="$SCRIPT_DIR/dist"
 RELEASE_COMMAND="${1:-release}"
 CANONICAL_RELEASE_FILES=(
     VERSION
     dependencies.env
-    TalkText/Package.resolved
-    TalkText/Sources/TalkText/Resources/parakeet-model.json
-    TalkText/Info.plist
-    TalkText/TalkText.entitlements
+    Loqui/Package.resolved
+    Loqui/Sources/Loqui/Resources/parakeet-model.json
+    Loqui/Info.plist
+    Loqui/Loqui.entitlements
 )
 
 fail() {
@@ -84,20 +84,20 @@ case "$RELEASE_COMMAND" in
 esac
 (( $# <= 1 )) || fail "usage: release.sh [verify-source]"
 
-if [[ -n "${TALKTEXT_VERSION_FILE:-}" ]]; then
+if [[ -n "${LOQUI_VERSION_FILE:-}" ]]; then
     fail "release does not accept a VERSION file override"
 fi
-unset TALKTEXT_VERSION_FILE
+unset LOQUI_VERSION_FILE
 
-if [[ -n "${TALKTEXT_DEPENDENCY_MANIFEST:-}" && "$TALKTEXT_DEPENDENCY_MANIFEST" != "$DEPENDENCY_MANIFEST" ]]; then
+if [[ -n "${LOQUI_DEPENDENCY_MANIFEST:-}" && "$LOQUI_DEPENDENCY_MANIFEST" != "$DEPENDENCY_MANIFEST" ]]; then
     fail "release does not accept a dependency manifest override"
 fi
-export TALKTEXT_DEPENDENCY_MANIFEST="$DEPENDENCY_MANIFEST"
-CANONICAL_MODEL_MANIFEST="$SCRIPT_DIR/TalkText/Sources/TalkText/Resources/parakeet-model.json"
-if [[ -n "${TALKTEXT_MODEL_MANIFEST:-}" && "$TALKTEXT_MODEL_MANIFEST" != "$CANONICAL_MODEL_MANIFEST" ]]; then
+export LOQUI_DEPENDENCY_MANIFEST="$DEPENDENCY_MANIFEST"
+CANONICAL_MODEL_MANIFEST="$SCRIPT_DIR/Loqui/Sources/Loqui/Resources/parakeet-model.json"
+if [[ -n "${LOQUI_MODEL_MANIFEST:-}" && "$LOQUI_MODEL_MANIFEST" != "$CANONICAL_MODEL_MANIFEST" ]]; then
     fail "release does not accept a model manifest override"
 fi
-export TALKTEXT_MODEL_MANIFEST="$CANONICAL_MODEL_MANIFEST"
+export LOQUI_MODEL_MANIFEST="$CANONICAL_MODEL_MANIFEST"
 
 VERSION="$("$SCRIPT_DIR/scripts/read-version.sh")"
 EXPECTED_TAG="v$VERSION"
@@ -126,10 +126,10 @@ NOTARY_RESULT="$DIST_DIR/.$BUNDLE_NAME-$VERSION-notarization.json"
 if [[ -z "$RELEASE_TAG" ]]; then
     RELEASE_TAG="$(git -C "$SCRIPT_DIR" describe --tags --exact-match HEAD 2>/dev/null || true)"
 fi
-RELEASE_COMMIT="${TALKTEXT_RELEASE_COMMIT:-${GITHUB_SHA:-}}"
+RELEASE_COMMIT="${LOQUI_RELEASE_COMMIT:-${GITHUB_SHA:-}}"
 if [[ -z "$RELEASE_COMMIT" ]]; then
     [[ "$RELEASE_COMMAND" == 'release' ]] || \
-        fail "TALKTEXT_RELEASE_COMMIT or GITHUB_SHA is required to recheck an immutable release"
+        fail "LOQUI_RELEASE_COMMIT or GITHUB_SHA is required to recheck an immutable release"
     RELEASE_COMMIT="$(git -C "$SCRIPT_DIR" rev-parse HEAD)"
 fi
 verify_release_source_state "$RELEASE_COMMIT" "$RELEASE_TAG"
@@ -139,7 +139,7 @@ if [[ "$RELEASE_COMMAND" == 'verify-source' ]]; then
     exit 0
 fi
 
-[[ -n "${TALKTEXT_SIGNING_IDENTITY:-}" ]] || fail "TALKTEXT_SIGNING_IDENTITY is required"
+[[ -n "${LOQUI_SIGNING_IDENTITY:-}" ]] || fail "LOQUI_SIGNING_IDENTITY is required"
 [[ -n "${APPLE_TEAM_ID:-}" ]] || fail "APPLE_TEAM_ID is required for signature verification"
 
 NOTARY_ARGUMENTS=()
@@ -170,8 +170,8 @@ cleanup() {
 trap cleanup EXIT HUP INT TERM
 
 echo "==> Building and Developer ID signing $RELEASE_TAG..."
-TALKTEXT_SIGNING_MODE=developer-id \
-TALKTEXT_EXPECTED_TEAM_ID="$APPLE_TEAM_ID" \
+LOQUI_SIGNING_MODE=developer-id \
+LOQUI_EXPECTED_TEAM_ID="$APPLE_TEAM_ID" \
     "$SCRIPT_DIR/bundle.sh"
 
 # Submit a transport archive. The final public archive is produced only after
@@ -193,20 +193,20 @@ fi
 
 echo "==> Stapling accepted ticket $NOTARY_ID..."
 xcrun stapler staple -v "$APP_PATH"
-TALKTEXT_EXPECTED_SIGNATURE=developer-id \
-TALKTEXT_EXPECTED_TEAM_ID="$APPLE_TEAM_ID" \
-TALKTEXT_REQUIRE_NOTARIZATION=1 \
+LOQUI_EXPECTED_SIGNATURE=developer-id \
+LOQUI_EXPECTED_TEAM_ID="$APPLE_TEAM_ID" \
+LOQUI_REQUIRE_NOTARIZATION=1 \
     "$SCRIPT_DIR/scripts/verify-bundle.sh" "$APP_PATH"
 
 echo "==> Creating final release archive..."
 ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" "$ZIP_PATH"
 
-EXTRACT_DIR="$(mktemp -d "${TMPDIR:-/tmp}/talktext-release-verify.XXXXXX")"
+EXTRACT_DIR="$(mktemp -d "${TMPDIR:-/tmp}/loqui-release-verify.XXXXXX")"
 ditto -x -k "$ZIP_PATH" "$EXTRACT_DIR"
 EXTRACTED_APP="$EXTRACT_DIR/$BUNDLE_NAME.app"
-TALKTEXT_EXPECTED_SIGNATURE=developer-id \
-TALKTEXT_EXPECTED_TEAM_ID="$APPLE_TEAM_ID" \
-TALKTEXT_REQUIRE_NOTARIZATION=1 \
+LOQUI_EXPECTED_SIGNATURE=developer-id \
+LOQUI_EXPECTED_TEAM_ID="$APPLE_TEAM_ID" \
+LOQUI_REQUIRE_NOTARIZATION=1 \
     "$SCRIPT_DIR/scripts/verify-bundle.sh" "$EXTRACTED_APP"
 
 verify_release_source_state "$RELEASE_COMMIT" "$RELEASE_TAG"

@@ -2,7 +2,7 @@
 
 ## Supported Macs
 
-TalkText transcription requires macOS 14 or newer on native Apple Silicon
+Loqui transcription requires macOS 14 or newer on native Apple Silicon
 (`arm64`). Every distributable app remains Universal 2 so Intel (`x86_64`) and
 Rosetta launches can show a clear unsupported-hardware message before model loading.
 The bundled Parakeet Core ML assets are architecture-neutral, but this integration
@@ -17,16 +17,16 @@ final binary.
 
 ## Canonical release metadata
 
-- `TalkText/Info.plist` is the only source for the bundle identifier,
+- `Loqui/Info.plist` is the only source for the bundle identifier,
   executable name, minimum system version, permission text, and other bundle
-  metadata. `TalkText/Package.swift` reads `CFBundleExecutable` and
+  metadata. `Loqui/Package.swift` reads `CFBundleExecutable` and
   `LSMinimumSystemVersion` from this file when SwiftPM evaluates the manifest,
   and the bundle scripts and GitHub workflows export the same metadata for
   product, deployment-target, and artifact lookup. The plist intentionally
   contains no version keys.
 - `VERSION` is the only version source. It must be one line containing a
   three-component numeric semantic version such as `1.2.3`. Bundle,
-  verification, and release entry points reject `TALKTEXT_VERSION_FILE` so an
+  verification, and release entry points reject `LOQUI_VERSION_FILE` so an
   external fixture cannot select production metadata or archive names.
 - Public releases use that same value for both
   `CFBundleShortVersionString` and `CFBundleVersion`. This is the explicit build
@@ -38,11 +38,11 @@ final binary.
   rechecked after archive verification and immediately before each publication
   transition. The archive is named
   `<CFBundleName>-<VERSION>.zip`.
-- `TalkText/Package.resolved` and `TalkText/Sources/TalkText/Resources/parakeet-model.json`
+- `Loqui/Package.resolved` and `Loqui/Sources/Loqui/Resources/parakeet-model.json`
   pin the built-in SDK and model assets and are included in immutable release
   source verification. The bundle includes both SwiftPM resource bundles and
   the reviewed model manifest.
-- `TalkText/TalkText.entitlements` is the reviewed, canonical entitlement set.
+- `Loqui/Loqui.entitlements` is the reviewed, canonical entitlement set.
   The final signing command consumes it, and bundle verification compares the
   entitlements embedded in the code signature with that file.
 
@@ -53,8 +53,8 @@ bundle and lets CI run strict signature, resource, metadata, entitlement, and
 architecture checks without access to release credentials. It is not a
 distributable or Gatekeeper-trusted signature.
 
-The local `bun talktext` deployment path uses the same bundle assembly and
-verification with `TALKTEXT_SIGNING_MODE=apple-development` when a suitable
+The local `bun loqui` deployment path uses the same bundle assembly and
+verification with `LOQUI_SIGNING_MODE=apple-development` when a suitable
 certificate is available. This keeps local TCC permission grants stable across
 rebuilds while remaining distinct from the Developer ID and notarization path
 used for public releases. It falls back to the default ad-hoc mode on machines
@@ -70,11 +70,11 @@ extracted app.
 For a local release, export:
 
 ```sh
-export TALKTEXT_SIGNING_IDENTITY='Developer ID Application: Example (TEAMID)'
+export LOQUI_SIGNING_IDENTITY='Developer ID Application: Example (TEAMID)'
 export APPLE_TEAM_ID='TEAMID'
 export APPLE_ID='release@example.com'
 export APPLE_APP_SPECIFIC_PASSWORD='xxxx-xxxx-xxxx-xxxx'
-export TALKTEXT_RELEASE_TAG="v$(./scripts/read-version.sh)"
+export LOQUI_RELEASE_TAG="v$(./scripts/read-version.sh)"
 ./scripts/dependency-tool.sh install-model
 ./release.sh
 ```

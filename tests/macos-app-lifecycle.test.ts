@@ -9,7 +9,7 @@ import {
 
 const application: RunningMacApplication = {
   pid: 41,
-  executablePath: "/fixture/TalkText.app/Contents/MacOS/TalkText",
+  executablePath: "/fixture/Loqui.app/Contents/MacOS/Loqui",
   terminateRequested: true,
 };
 
@@ -55,11 +55,11 @@ describe("macOS application launch lifecycle", () => {
 
     const pid = await launchMacApplication(
       {
-        appPath: "/fixture/TalkText.app",
+        appPath: "/fixture/Loqui.app",
         executablePath: application.executablePath,
-        executableName: "TalkText",
-        displayName: "TalkText",
-        environment: { TALKTEXT_DEVELOPMENT_ROOT: "/fixture" },
+        executableName: "Loqui",
+        displayName: "Loqui",
+        environment: { LOQUI_DEVELOPMENT_ROOT: "/fixture" },
         timings: {
           pollIntervalMs: 1,
           successfulOpenObservationMs: 3,
@@ -77,9 +77,9 @@ describe("macOS application launch lifecycle", () => {
       "/usr/bin/open",
       "-n",
       "--env",
-      "TALKTEXT_DEVELOPMENT_ROOT=/fixture",
+      "LOQUI_DEVELOPMENT_ROOT=/fixture",
       "-a",
-      "/fixture/TalkText.app",
+      "/fixture/Loqui.app",
     ]);
     expect(warnings[0]).toContain("-609");
   });
@@ -110,10 +110,10 @@ describe("macOS application launch lifecycle", () => {
 
     const pid = await launchMacApplication(
       {
-        appPath: "/fixture/TalkText.app",
+        appPath: "/fixture/Loqui.app",
         executablePath: application.executablePath,
-        executableName: "TalkText",
-        displayName: "TalkText",
+        executableName: "Loqui",
+        displayName: "Loqui",
         timings: {
           pollIntervalMs: 1,
           failedOpenObservationMs: 2,
@@ -130,9 +130,9 @@ describe("macOS application launch lifecycle", () => {
 
   test("launches the exact app path without sending it to a default document handler", async () => {
     let now = 0;
-    let selectedTalkText = false;
-    const appPath = "/fixture with spaces/TalkText.app";
-    const executablePath = `${appPath}/Contents/MacOS/TalkText`;
+    let selectedLoqui = false;
+    const appPath = "/fixture with spaces/Loqui.app";
+    const executablePath = `${appPath}/Contents/MacOS/Loqui`;
     const runtime: MacApplicationRuntime = {
       now: () => now,
       sleep: async (milliseconds) => {
@@ -143,12 +143,12 @@ describe("macOS application launch lifecycle", () => {
       sendSignal: async () => unneeded(),
       runningPIDs: async (path) => {
         expect(path).toBe(executablePath);
-        return selectedTalkText ? [84] : [];
+        return selectedLoqui ? [84] : [];
       },
       open: async (command) => {
         // A successful document open can start another app. Only explicit
-        // application selection starts TalkText in this runtime.
-        selectedTalkText = command.includes("-a") &&
+        // application selection starts Loqui in this runtime.
+        selectedLoqui = command.includes("-a") &&
           command[command.indexOf("-a") + 1] === appPath;
         expect(command).toEqual(["/usr/bin/open", "-n", "-a", appPath]);
         return { exitCode: 0, stdout: "", stderr: "" };
@@ -160,8 +160,8 @@ describe("macOS application launch lifecycle", () => {
       {
         appPath,
         executablePath,
-        executableName: "TalkText",
-        displayName: "TalkText",
+        executableName: "Loqui",
+        displayName: "Loqui",
         timings: {
           pollIntervalMs: 1,
           successfulOpenObservationMs: 2,
@@ -195,8 +195,8 @@ describe("macOS application launch lifecycle", () => {
 
     const wasRunning = await stopMacApplication(
       {
-        bundleIdentifier: "com.joeblau.talktext",
-        displayName: "TalkText",
+        bundleIdentifier: "com.benniekingwood.loqui",
+        displayName: "Loqui",
         timings: {
           pollIntervalMs: 1,
           gracefulQuitTimeoutMs: 5,
@@ -236,8 +236,8 @@ describe("macOS application launch lifecycle", () => {
 
     await stopMacApplication(
       {
-        bundleIdentifier: "com.joeblau.talktext",
-        displayName: "TalkText",
+        bundleIdentifier: "com.benniekingwood.loqui",
+        displayName: "Loqui",
         timings: {
           pollIntervalMs: 1,
           gracefulQuitTimeoutMs: 2,
@@ -274,10 +274,10 @@ describe("macOS application launch lifecycle", () => {
     await expect(
       launchMacApplication(
         {
-          appPath: "/fixture/TalkText.app",
+          appPath: "/fixture/Loqui.app",
           executablePath: application.executablePath,
-          executableName: "TalkText",
-          displayName: "TalkText",
+          executableName: "Loqui",
+          displayName: "Loqui",
           timings: {
             pollIntervalMs: 1,
             failedOpenObservationMs: 1,

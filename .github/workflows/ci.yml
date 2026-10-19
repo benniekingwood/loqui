@@ -43,11 +43,11 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
-            TalkText/.build
-            ~/.cache/talktext-tools
-          key: talktext-v1-${{ runner.os }}-${{ runner.arch }}-xcode-16.4-${{ hashFiles('TalkText/Package.swift', 'TalkText/Package.resolved') }}
+            Loqui/.build
+            ~/.cache/loqui-tools
+          key: loqui-v1-${{ runner.os }}-${{ runner.arch }}-xcode-16.4-${{ hashFiles('Loqui/Package.swift', 'Loqui/Package.resolved') }}
           restore-keys: |
-            talktext-v1-${{ runner.os }}-${{ runner.arch }}-xcode-16.4-
+            loqui-v1-${{ runner.os }}-${{ runner.arch }}-xcode-16.4-
 
       - name: Install digest-pinned lint tools
         run: |
@@ -58,25 +58,25 @@ jobs:
         run: |
           while IFS= read -r -d '' script; do
             bash -n "$script"
-          done < <(find . -type f -name '*.sh' -not -path './TalkText/.build/*' -print0)
-          plutil -lint TalkText/Info.plist TalkText/TalkText.entitlements
-          if /usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' TalkText/Info.plist >/dev/null 2>&1; then
-            echo 'TalkText/Info.plist must not duplicate VERSION' >&2
+          done < <(find . -type f -name '*.sh' -not -path './Loqui/.build/*' -print0)
+          plutil -lint Loqui/Info.plist Loqui/Loqui.entitlements
+          if /usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' Loqui/Info.plist >/dev/null 2>&1; then
+            echo 'Loqui/Info.plist must not duplicate VERSION' >&2
             exit 1
           fi
           ./scripts/read-version.sh
           swiftlint lint --strict --config .swiftlint.yml
-          swiftformat --lint --config .swiftformat TalkText/Sources TalkText/Tests
+          swiftformat --lint --config .swiftformat Loqui/Sources Loqui/Tests
 
       - name: Build debug and release for every supported architecture
         run: |
           for configuration in debug release; do
             for architecture in arm64 x86_64; do
               swift build \
-                --package-path TalkText \
+                --package-path Loqui \
                 --configuration "$configuration" \
-                --triple "$architecture-apple-macosx$TALKTEXT_MINIMUM_SYSTEM_VERSION" \
-                --scratch-path "TalkText/.build/$configuration-$architecture" \
+                --triple "$architecture-apple-macosx$LOQUI_MINIMUM_SYSTEM_VERSION" \
+                --scratch-path "Loqui/.build/$configuration-$architecture" \
                 -Xswiftc -warnings-as-errors
             done
           done
@@ -84,27 +84,27 @@ jobs:
       - name: Run all tests
         run: |
           swift test \
-            --package-path TalkText \
+            --package-path Loqui \
             --configuration debug \
-            --triple "x86_64-apple-macosx$TALKTEXT_MINIMUM_SYSTEM_VERSION" \
-            --scratch-path TalkText/.build/tests-x86_64 \
+            --triple "x86_64-apple-macosx$LOQUI_MINIMUM_SYSTEM_VERSION" \
+            --scratch-path Loqui/.build/tests-x86_64 \
             -Xswiftc -warnings-as-errors
           bash tests/dependency-tool-fixtures.sh
 
       - name: Assemble and verify extracted deterministic test bundle
         run: |
-          fixture_dir="$RUNNER_TEMP/talktext-model-fixture"
+          fixture_dir="$RUNNER_TEMP/loqui-model-fixture"
           python3 tests/create-parakeet-fixture.py "$fixture_dir"
-          export TALKTEXT_MODEL_MANIFEST="$fixture_dir/manifest.json"
-          export TALKTEXT_MODEL_PATH="$fixture_dir/parakeet-tdt-0.6b-v2-coreml"
-          TALKTEXT_SIGNING_MODE=adhoc ./bundle.sh
-          archive="$RUNNER_TEMP/$TALKTEXT_BUNDLE_NAME-ci.zip"
+          export LOQUI_MODEL_MANIFEST="$fixture_dir/manifest.json"
+          export LOQUI_MODEL_PATH="$fixture_dir/parakeet-tdt-0.6b-v2-coreml"
+          LOQUI_SIGNING_MODE=adhoc ./bundle.sh
+          archive="$RUNNER_TEMP/$LOQUI_BUNDLE_NAME-ci.zip"
           extracted="$RUNNER_TEMP/extracted"
-          ditto -c -k --sequesterRsrc --keepParent "$TALKTEXT_BUNDLE_NAME.app" "$archive"
+          ditto -c -k --sequesterRsrc --keepParent "$LOQUI_BUNDLE_NAME.app" "$archive"
           mkdir -p "$extracted"
           ditto -x -k "$archive" "$extracted"
-          TALKTEXT_EXPECTED_SIGNATURE=adhoc TALKTEXT_X86_64_SMOKE_TEST=1 \
-            ./scripts/verify-bundle.sh "$extracted/$TALKTEXT_BUNDLE_NAME.app"
+          LOQUI_EXPECTED_SIGNATURE=adhoc LOQUI_X86_64_SMOKE_TEST=1 \
+            ./scripts/verify-bundle.sh "$extracted/$LOQUI_BUNDLE_NAME.app"
 
   backend-contract:
     name: Parakeet backend (${{ matrix.architecture }})
@@ -143,7 +143,7 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: models
-          key: talktext-parakeet-v2-${{ hashFiles('TalkText/Sources/TalkText/Resources/parakeet-model.json') }}
+          key: loqui-parakeet-v2-${{ hashFiles('Loqui/Sources/Loqui/Resources/parakeet-model.json') }}
 
       - name: Install and verify the pinned production model
         if: matrix.architecture == 'arm64'
@@ -151,12 +151,12 @@ jobs:
 
       - name: Exercise Parakeet inference or unsupported-hardware preflight
         env:
-          TALKTEXT_PARAKEET_SMOKE_TEST: '1'
-          TALKTEXT_TEST_AUDIO: ${{ github.workspace }}/tests/fixtures/jfk.wav
+          LOQUI_PARAKEET_SMOKE_TEST: '1'
+          LOQUI_TEST_AUDIO: ${{ github.workspace }}/tests/fixtures/jfk.wav
         run: |
-          swift test --package-path TalkText \
-            --triple "${{ matrix.architecture }}-apple-macosx$TALKTEXT_MINIMUM_SYSTEM_VERSION" \
-            --scratch-path TalkText/.build/parakeet-${{ matrix.architecture }} \
+          swift test --package-path Loqui \
+            --triple "${{ matrix.architecture }}-apple-macosx$LOQUI_MINIMUM_SYSTEM_VERSION" \
+            --scratch-path Loqui/.build/parakeet-${{ matrix.architecture }} \
             --filter ParakeetIntegrationTests -Xswiftc -warnings-as-errors
 
   required:

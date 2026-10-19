@@ -3,7 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 REPOSITORY_ROOT="$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd -P)"
-VERSION_FILE="${TALKTEXT_VERSION_FILE:-$REPOSITORY_ROOT/VERSION}"
+VERSION_FILE="${LOQUI_VERSION_FILE:-$REPOSITORY_ROOT/VERSION}"
 
 fail() {
     echo "error: $*" >&2

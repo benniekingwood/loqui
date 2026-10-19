@@ -1,7 +1,7 @@
 {
-  "name": "talktext",
+  "name": "loqui",
   "private": true,
   "scripts": {
-    "talktext": "bun run scripts/talktext.ts"
+    "loqui": "bun run scripts/loqui.ts"
   }
 }

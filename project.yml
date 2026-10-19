@@ -1,6 +1,6 @@
 # Development-only Xcode project.
 #
-# TalkText needs a real app bundle to work: microphone TCC, accessibility, and
+# Loqui needs a real app bundle to work: microphone TCC, accessibility, and
 # LSUIElement all depend on it, so `swift run` cannot exercise the app. This
 # generates an Xcode app target for running and debugging that bundle.
 #
@@ -9,11 +9,11 @@
 #
 # The names below are written literally so that a plain `xcodegen generate`
 # produces a correct project. They are not a second source of truth: the app
-# bundle's identity comes from the canonical TalkText/Info.plist that Xcode reads
+# bundle's identity comes from the canonical Loqui/Info.plist that Xcode reads
 # directly, the version is injected from VERSION at build time, and
 # scripts/generate-xcodeproj.sh fails if anything here drifts from those sources.
 
-name: TalkText
+name: Loqui
 
 options:
   createIntermediateGroups: true
@@ -34,21 +34,21 @@ packages:
     exactVersion: 0.17.4
 
 targets:
-  TalkText:
+  Loqui:
     type: application
     platform: macOS
     sources:
-      - path: TalkText/Sources/TalkText
+      - path: Loqui/Sources/Loqui
     dependencies:
       - package: FluidAudio
     settings:
       base:
-        PRODUCT_NAME: TalkText # Checked against CFBundleExecutable.
-        PRODUCT_BUNDLE_IDENTIFIER: com.joeblau.talktext # Checked against CFBundleIdentifier.
+        PRODUCT_NAME: Loqui # Checked against CFBundleExecutable.
+        PRODUCT_BUNDLE_IDENTIFIER: com.benniekingwood.loqui # Checked against CFBundleIdentifier.
         # The tracked plist is canonical; Xcode must not synthesize its own.
         GENERATE_INFOPLIST_FILE: NO
-        INFOPLIST_FILE: TalkText/Info.plist
-        CODE_SIGN_ENTITLEMENTS: TalkText/TalkText.entitlements
+        INFOPLIST_FILE: Loqui/Info.plist
+        CODE_SIGN_ENTITLEMENTS: Loqui/Loqui.entitlements
     # Signing lives in Signing.xcconfig so a machine-specific team never lands in
     # this tracked spec. See that file for why the identity matters to TCC.
     configFiles:
@@ -67,35 +67,35 @@ targets:
           - $(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)
           - $(SRCROOT)/VERSION
 
-  TalkTextTests:
+  LoquiTests:
     type: bundle.unit-test
     platform: macOS
     sources:
-      - path: TalkText/Tests/TalkTextTests
+      - path: Loqui/Tests/LoquiTests
     dependencies:
-      - target: TalkText
+      - target: Loqui
     settings:
       base:
-        # The tests use `@testable import TalkText`.
+        # The tests use `@testable import Loqui`.
         ENABLE_TESTABILITY: YES
         # Test-bundle scaffolding, not canonical app metadata: let Xcode
         # generate this plist. Only the app bundle uses the tracked one.
         GENERATE_INFOPLIST_FILE: YES
 
 schemes:
-  TalkText:
+  Loqui:
     build:
       targets:
-        TalkText: all
-        TalkTextTests: [test]
+        Loqui: all
+        LoquiTests: [test]
     run:
       config: Debug
       environmentVariables:
         # An Xcode build runs from DerivedData, so the resolver cannot infer the
         # checkout the way it does for a SwiftPM build. Point it at the checkout
         # so the app finds models/ without copying the model into the bundle.
-        TALKTEXT_DEVELOPMENT_ROOT: $(SRCROOT)
+        LOQUI_DEVELOPMENT_ROOT: $(SRCROOT)
     test:
       config: Debug
       targets:
-        - TalkTextTests
+        - LoquiTests

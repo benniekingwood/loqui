@@ -3,7 +3,7 @@ set -euo pipefail
 
 # Injects the canonical VERSION into the Info.plist of an Xcode-built product.
 #
-# The tracked TalkText/Info.plist deliberately carries no version keys, because
+# The tracked Loqui/Info.plist deliberately carries no version keys, because
 # VERSION is canonical and bundle.sh injects them during release assembly. This
 # mirrors that behavior for Xcode builds so a development build reports the same
 # version as a released one, without a second copy of the version in the project.

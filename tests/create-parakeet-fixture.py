@@ -6,11 +6,11 @@ from pathlib import Path
 import sys
 
 root = Path(sys.argv[1])
-source = Path(__file__).resolve().parent.parent / "TalkText/Sources/TalkText/Resources/parakeet-model.json"
+source = Path(__file__).resolve().parent.parent / "Loqui/Sources/Loqui/Resources/parakeet-model.json"
 manifest = json.loads(source.read_text())
 directory = root / manifest["directory"]
 for item in manifest["files"]:
-    payload = ("TalkText model fixture: " + item["path"]).encode()
+    payload = ("Loqui model fixture: " + item["path"]).encode()
     path = directory / item["path"]
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(payload)

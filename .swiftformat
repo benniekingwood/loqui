@@ -2,7 +2,7 @@
 --indent 4
 --maxwidth 160
 --commas always
---exclude TalkText/.build,TalkText/.swiftpm
+--exclude Loqui/.build,Loqui/.swiftpm
 
 # Existing code intentionally relies on these spellings or layouts. The
 # remaining enabled rules are the repository's enforced formatting policy.

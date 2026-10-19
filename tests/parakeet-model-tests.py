@@ -121,42 +121,42 @@ class ReleaseMetadataTests(unittest.TestCase):
 
     def test_production_paths_reject_model_dependency_and_version_overrides(self):
         fake = str(self.root / "external.json")
-        self.assert_failure("setup.sh", {"TALKTEXT_MODEL_MANIFEST": fake}, "does not accept a model manifest override")
-        self.assert_failure("setup.sh", {"TALKTEXT_DEPENDENCY_MANIFEST": fake}, "does not accept a dependency manifest override")
-        self.assert_failure("release.sh", {"TALKTEXT_MODEL_MANIFEST": fake}, "does not accept a model manifest override")
-        self.assert_failure("bundle.sh", {"TALKTEXT_SIGNING_MODE": "developer-id", "TALKTEXT_MODEL_MANIFEST": fake},
+        self.assert_failure("setup.sh", {"LOQUI_MODEL_MANIFEST": fake}, "does not accept a model manifest override")
+        self.assert_failure("setup.sh", {"LOQUI_DEPENDENCY_MANIFEST": fake}, "does not accept a dependency manifest override")
+        self.assert_failure("release.sh", {"LOQUI_MODEL_MANIFEST": fake}, "does not accept a model manifest override")
+        self.assert_failure("bundle.sh", {"LOQUI_SIGNING_MODE": "developer-id", "LOQUI_MODEL_MANIFEST": fake},
                             "does not accept a model manifest override")
         for script in ["bundle.sh", "release.sh", "scripts/verify-bundle.sh"]:
-            self.assert_failure(script, {"TALKTEXT_VERSION_FILE": fake}, "does not accept a VERSION file override")
+            self.assert_failure(script, {"LOQUI_VERSION_FILE": fake}, "does not accept a VERSION file override")
 
     def test_developer_id_rejects_external_shell_manifest_before_sourcing(self):
         marker = self.root / "executed"
         manifest = self.root / "external.env"
         manifest.write_text(f"touch '{marker}'\n")
-        self.assert_failure("bundle.sh", {"TALKTEXT_SIGNING_MODE": "developer-id", "TALKTEXT_DEPENDENCY_MANIFEST": str(manifest)},
+        self.assert_failure("bundle.sh", {"LOQUI_SIGNING_MODE": "developer-id", "LOQUI_DEPENDENCY_MANIFEST": str(manifest)},
                             "does not accept a dependency manifest override")
         self.assertFalse(marker.exists())
 
     def test_metadata_export_and_package_follow_the_canonical_plist(self):
-        package = self.root / "TalkText"
+        package = self.root / "Loqui"
         scripts = self.root / "scripts"
         package.mkdir()
         scripts.mkdir()
-        info = plistlib.loads((ROOT / "TalkText/Info.plist").read_bytes())
+        info = plistlib.loads((ROOT / "Loqui/Info.plist").read_bytes())
         info.update(CFBundleName="EchoFixture", CFBundleExecutable="EchoFixtureExecutable", LSMinimumSystemVersion="15.0")
         (package / "Info.plist").write_bytes(plistlib.dumps(info))
-        shutil.copy(ROOT / "TalkText/Package.swift", package)
+        shutil.copy(ROOT / "Loqui/Package.swift", package)
         shutil.copy(ROOT / "scripts/export-canonical-metadata.sh", scripts)
-        (package / "Sources/TalkText/Resources").mkdir(parents=True)
-        (package / "Tests/TalkTextTests").mkdir(parents=True)
-        (package / "Sources/TalkText/main.swift").write_text("print(42)\n")
+        (package / "Sources/Loqui/Resources").mkdir(parents=True)
+        (package / "Tests/LoquiTests").mkdir(parents=True)
+        (package / "Sources/Loqui/main.swift").write_text("print(42)\n")
         output = self.root / "metadata.env"
         result = subprocess.run([str(scripts / "export-canonical-metadata.sh"), str(output)], capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
         metadata = output.read_text()
-        self.assertIn("TALKTEXT_BUNDLE_NAME=EchoFixture", metadata)
-        self.assertIn("TALKTEXT_EXECUTABLE_NAME=EchoFixtureExecutable", metadata)
-        self.assertIn("TALKTEXT_MINIMUM_SYSTEM_VERSION=15.0", metadata)
+        self.assertIn("LOQUI_BUNDLE_NAME=EchoFixture", metadata)
+        self.assertIn("LOQUI_EXECUTABLE_NAME=EchoFixtureExecutable", metadata)
+        self.assertIn("LOQUI_MINIMUM_SYSTEM_VERSION=15.0", metadata)
         result = subprocess.run(["swift", "package", "--package-path", str(package), "dump-package"], capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
         resolved = json.loads(result.stdout)
@@ -165,8 +165,8 @@ class ReleaseMetadataTests(unittest.TestCase):
         self.assertEqual(resolved["platforms"][0]["version"], "15.0")
 
     def test_immutable_release_source_includes_model_manifest_and_package_lock(self):
-        files = ["release.sh", "scripts/read-version.sh", "VERSION", "dependencies.env", "TalkText/Info.plist",
-                 "TalkText/TalkText.entitlements", "TalkText/Package.resolved", "TalkText/Sources/TalkText/Resources/parakeet-model.json"]
+        files = ["release.sh", "scripts/read-version.sh", "VERSION", "dependencies.env", "Loqui/Info.plist",
+                 "Loqui/Loqui.entitlements", "Loqui/Package.resolved", "Loqui/Sources/Loqui/Resources/parakeet-model.json"]
         for name in files:
             destination = self.root / name
             destination.parent.mkdir(parents=True, exist_ok=True)
@@ -175,14 +175,14 @@ class ReleaseMetadataTests(unittest.TestCase):
             return subprocess.check_output(["git", "-C", str(self.root), *args], text=True).strip()
         git("init", "--quiet")
         git("add", ".")
-        git("-c", "user.name=TalkText Fixture", "-c", "user.email=fixture@localhost", "commit", "--quiet", "-m", "fixture")
+        git("-c", "user.name=Loqui Fixture", "-c", "user.email=fixture@localhost", "commit", "--quiet", "-m", "fixture")
         version = (self.root / "VERSION").read_text().strip()
         git("tag", "v" + version)
         commit = git("rev-parse", "HEAD")
-        environment = dict(os.environ, TALKTEXT_RELEASE_COMMIT=commit, TALKTEXT_RELEASE_TAG="v" + version)
+        environment = dict(os.environ, LOQUI_RELEASE_COMMIT=commit, LOQUI_RELEASE_TAG="v" + version)
         result = subprocess.run([str(self.root / "release.sh"), "verify-source"], env=environment, capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
-        manifest = self.root / "TalkText/Sources/TalkText/Resources/parakeet-model.json"
+        manifest = self.root / "Loqui/Sources/Loqui/Resources/parakeet-model.json"
         manifest.write_text(manifest.read_text() + "\n")
         result = subprocess.run([str(self.root / "release.sh"), "verify-source"], env=environment, capture_output=True, text=True)
         self.assertNotEqual(result.returncode, 0)

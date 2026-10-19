@@ -8,7 +8,7 @@ SWIFTFORMAT_VERSION='0.55.4'
 SWIFTFORMAT_SHA256='c252ba7109b247ad4e172a7a20ced02f0f9132ffdf379ca1cd8e360272950836'
 SWIFTFORMAT_URL="https://github.com/nicklockwood/SwiftFormat/releases/download/$SWIFTFORMAT_VERSION/swiftformat.zip"
 
-CACHE_ROOT="${TALKTEXT_CI_TOOL_CACHE:-${HOME:?}/.cache/talktext-tools}"
+CACHE_ROOT="${LOQUI_CI_TOOL_CACHE:-${HOME:?}/.cache/loqui-tools}"
 INSTALL_ROOT="$CACHE_ROOT/swiftlint-$SWIFTLINT_VERSION-swiftformat-$SWIFTFORMAT_VERSION"
 BIN_DIR="$INSTALL_ROOT/bin"
 
@@ -31,7 +31,7 @@ if tools_are_valid; then
 fi
 
 rm -rf -- "$INSTALL_ROOT"
-TEMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/talktext-ci-tools.XXXXXX")"
+TEMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/loqui-ci-tools.XXXXXX")"
 cleanup() {
     rm -rf -- "$TEMP_DIR"
 }

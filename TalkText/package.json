@@ -1,7 +1,0 @@
-{
-  "name": "talktext-swift-package",
-  "private": true,
-  "scripts": {
-    "talktext": "bun run ../scripts/talktext.ts"
-  }
-}

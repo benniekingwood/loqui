@@ -44,16 +44,16 @@ jobs:
       - name: Restore explicit SwiftPM cache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: TalkText/.build
-          key: talktext-v1-${{ runner.os }}-${{ runner.arch }}-xcode-16.4-${{ hashFiles('TalkText/Package.swift', 'TalkText/Package.resolved') }}
+          path: Loqui/.build
+          key: loqui-v1-${{ runner.os }}-${{ runner.arch }}-xcode-16.4-${{ hashFiles('Loqui/Package.swift', 'Loqui/Package.resolved') }}
           restore-keys: |
-            talktext-v1-${{ runner.os }}-${{ runner.arch }}-xcode-16.4-
+            loqui-v1-${{ runner.os }}-${{ runner.arch }}-xcode-16.4-
 
       - name: Restore digest-keyed model cache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: models
-          key: talktext-model-v1-${{ hashFiles('TalkText/Sources/TalkText/Resources/parakeet-model.json') }}
+          key: loqui-model-v1-${{ hashFiles('Loqui/Sources/Loqui/Resources/parakeet-model.json') }}
 
       - name: Install or verify the pinned production model
         run: ./scripts/dependency-tool.sh install-model
@@ -69,7 +69,7 @@ jobs:
           : "${MACOS_SIGNING_IDENTITY:?missing MACOS_SIGNING_IDENTITY}"
 
           certificate_path="$RUNNER_TEMP/developer-id.p12"
-          keychain_path="$RUNNER_TEMP/talktext-signing.keychain-db"
+          keychain_path="$RUNNER_TEMP/loqui-signing.keychain-db"
           keychain_password="$(openssl rand -hex 32)"
           if printf '%s' "$MACOS_CERTIFICATE_BASE64" | base64 -D > "$certificate_path" 2>/dev/null; then
             :
@@ -94,16 +94,16 @@ jobs:
           security find-identity -v -p codesigning "$keychain_path" | grep -F "\"$MACOS_SIGNING_IDENTITY\""
           rm -f "$certificate_path"
 
-          echo "TALKTEXT_KEYCHAIN=$keychain_path" >> "$GITHUB_ENV"
+          echo "LOQUI_KEYCHAIN=$keychain_path" >> "$GITHUB_ENV"
 
       - name: Build, sign, notarize, staple, and archive
         env:
-          TALKTEXT_SIGNING_IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
+          LOQUI_SIGNING_IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          TALKTEXT_RELEASE_TAG: ${{ github.ref_name }}
-          TALKTEXT_RELEASE_COMMIT: ${{ github.sha }}
+          LOQUI_RELEASE_TAG: ${{ github.ref_name }}
+          LOQUI_RELEASE_COMMIT: ${{ github.sha }}
         run: |
           : "${APPLE_ID:?missing APPLE_ID}"
           : "${APPLE_TEAM_ID:?missing APPLE_TEAM_ID}"
@@ -113,14 +113,14 @@ jobs:
       - name: Create draft release and upload verified assets
         env:
           GH_TOKEN: ${{ github.token }}
-          TALKTEXT_RELEASE_TAG: ${{ github.ref_name }}
-          TALKTEXT_RELEASE_COMMIT: ${{ github.sha }}
+          LOQUI_RELEASE_TAG: ${{ github.ref_name }}
+          LOQUI_RELEASE_COMMIT: ${{ github.sha }}
         run: |
           source dependencies.env
           version="$(./scripts/read-version.sh)"
-          zip_name="$TALKTEXT_BUNDLE_NAME-$version.zip"
+          zip_name="$LOQUI_BUNDLE_NAME-$version.zip"
           release_preamble="$(printf '%s\n\n%s\n\n%s' \
-            "This release is a notarized Universal 2 build for Apple Silicon and Intel Macs running macOS $TALKTEXT_MINIMUM_SYSTEM_VERSION or newer." \
+            "This release is a notarized Universal 2 build for Apple Silicon and Intel Macs running macOS $LOQUI_MINIMUM_SYSTEM_VERSION or newer." \
             "Pinned Parakeet model: $MODEL_REPOSITORY@$MODEL_REVISION; file digests are in the reviewed model manifest." \
             "Built-in transcription backend: FluidAudio $BACKEND_VERSION.")"
           ./release.sh verify-source
@@ -129,7 +129,7 @@ jobs:
             "dist/$zip_name.sha256" \
             --draft \
             --verify-tag \
-            --title "$TALKTEXT_BUNDLE_NAME $version" \
+            --title "$LOQUI_BUNDLE_NAME $version" \
             --generate-notes \
             --notes "$release_preamble"
 
@@ -139,24 +139,24 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           version="$(./scripts/read-version.sh)"
-          zip_name="$TALKTEXT_BUNDLE_NAME-$version.zip"
+          zip_name="$LOQUI_BUNDLE_NAME-$version.zip"
           download_dir="$RUNNER_TEMP/downloaded-release"
           extracted_dir="$RUNNER_TEMP/downloaded-release-extracted"
           mkdir -p "$download_dir" "$extracted_dir"
           gh release download "$GITHUB_REF_NAME" --pattern "$zip_name" --dir "$download_dir"
           (cd "$download_dir" && shasum -a 256 -c "$GITHUB_WORKSPACE/dist/$zip_name.sha256")
           ditto -x -k "$download_dir/$zip_name" "$extracted_dir"
-          TALKTEXT_EXPECTED_SIGNATURE=developer-id \
-          TALKTEXT_EXPECTED_TEAM_ID="$APPLE_TEAM_ID" \
-          TALKTEXT_REQUIRE_NOTARIZATION=1 \
-          TALKTEXT_X86_64_SMOKE_TEST=1 \
-            ./scripts/verify-bundle.sh "$extracted_dir/$TALKTEXT_BUNDLE_NAME.app"
+          LOQUI_EXPECTED_SIGNATURE=developer-id \
+          LOQUI_EXPECTED_TEAM_ID="$APPLE_TEAM_ID" \
+          LOQUI_REQUIRE_NOTARIZATION=1 \
+          LOQUI_X86_64_SMOKE_TEST=1 \
+            ./scripts/verify-bundle.sh "$extracted_dir/$LOQUI_BUNDLE_NAME.app"
 
       - name: Publish only after downloaded-asset verification
         env:
           GH_TOKEN: ${{ github.token }}
-          TALKTEXT_RELEASE_TAG: ${{ github.ref_name }}
-          TALKTEXT_RELEASE_COMMIT: ${{ github.sha }}
+          LOQUI_RELEASE_TAG: ${{ github.ref_name }}
+          LOQUI_RELEASE_COMMIT: ${{ github.sha }}
         run: |
           ./release.sh verify-source
           gh release edit "$GITHUB_REF_NAME" --draft=false --latest
@@ -164,6 +164,6 @@ jobs:
       - name: Delete ephemeral keychain
         if: ${{ always() }}
         run: |
-          if [[ -n "${TALKTEXT_KEYCHAIN:-}" && -f "$TALKTEXT_KEYCHAIN" ]]; then
-            security delete-keychain "$TALKTEXT_KEYCHAIN"
+          if [[ -n "${LOQUI_KEYCHAIN:-}" && -f "$LOQUI_KEYCHAIN" ]]; then
+            security delete-keychain "$LOQUI_KEYCHAIN"
           fi
