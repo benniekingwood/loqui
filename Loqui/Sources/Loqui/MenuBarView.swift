@@ -7,6 +7,7 @@ struct MenuBarView: View {
     @EnvironmentObject var hotKeyController: HotKeyController
     @EnvironmentObject var audioInputSelection: AudioInputSelection
     @AppStorage(RecordingCuePreference.defaultsKey) private var playsSoundCues = true
+    let openSettings: @MainActor () -> Void
 
     var body: some View {
         Section {
@@ -32,7 +33,7 @@ struct MenuBarView: View {
 
         if !hotKeyController.availability.isRegistered {
             Button { hotKeyController.retry() } label: {
-                Label("Enable Right Option Shortcut", systemImage: "keyboard")
+                Label("Enable \(hotKeyController.shortcut.key.displayName) Shortcut", systemImage: "keyboard")
             }
         }
 
@@ -72,6 +73,9 @@ struct MenuBarView: View {
 
         Divider()
 
+        Button("Settings…") { openSettings() }
+            .keyboardShortcut(",")
+
         Button("Quit Loqui") { NSApplication.shared.terminate(nil) }
             .keyboardShortcut("q")
     }
@@ -103,7 +107,7 @@ struct MenuBarView: View {
     /// Transient states need no second line.
     private var statusDetail: String? {
         switch engine.state {
-        case .idle: return "Hold Right Option to dictate · double-tap to lock"
+        case .idle: return hotKeyController.shortcut.menuHint
         case .failed: return engine.statusText
         case .starting where engine.statusText != "Starting…": return engine.statusText
         default: return nil

@@ -6,7 +6,8 @@ final class EngineHotKeyServiceFake: GlobalHotKeyService {
     private(set) var uninstallCount = 0
 
     func install(
-        action: @escaping @MainActor @Sendable (RightOptionKeyPhase) -> Void
+        key: DictationKey,
+        action: @escaping @MainActor @Sendable (DictationKeyPhase) -> Void
     ) -> Result<Void, HotKeyInstallationError> {
         .success(())
     }

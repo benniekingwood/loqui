@@ -6,7 +6,7 @@ struct LoquiApp: App {
 
     var body: some Scene {
         MenuBarExtra {
-            MenuBarView()
+            MenuBarView(openSettings: appDelegate.showSettings)
                 .environmentObject(appDelegate.transcriptionEngine)
                 .environmentObject(appDelegate.hotKeyController)
                 .environmentObject(appDelegate.audioInputSelection)
@@ -15,6 +15,12 @@ struct LoquiApp: App {
                 .environmentObject(appDelegate.transcriptionEngine)
         }
         .menuBarExtraStyle(.menu)
+        .commands {
+            CommandGroup(replacing: .appSettings) {
+                Button("Settings…") { appDelegate.showSettings() }
+                    .keyboardShortcut(",")
+            }
+        }
     }
 }
 

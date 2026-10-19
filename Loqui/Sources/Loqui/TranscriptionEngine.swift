@@ -53,6 +53,9 @@ final class TranscriptionEngine: ObservableObject {
     @Published private(set) var state: State
     @Published private(set) var statusText: String
     @Published private(set) var modelRecovery: ModelRecovery?
+    /// Names the user's dictation key in status text. Kept in sync with
+    /// `HotKeyController.shortcut` by the app delegate.
+    var shortcut: DictationShortcut = .default
 
     var isInteractive: Bool {
         state == .idle || state == .failed
@@ -118,7 +121,7 @@ final class TranscriptionEngine: ObservableObject {
             transcriber: transcriber
         )
         state = startupPresentation?.state ?? .idle
-        statusText = startupPresentation?.statusText ?? "Hold Right Option to record, double-tap to lock"
+        statusText = startupPresentation?.statusText ?? DictationShortcut.default.readyHint
         modelRecovery = startupPresentation?.modelRecovery
 
         if performStartupCleanup {
@@ -163,7 +166,7 @@ final class TranscriptionEngine: ObservableObject {
                 self.transition(
                     to: Presentation(
                         state: .idle,
-                        statusText: "Ready. Hold Right Option to record, double-tap to lock"
+                        statusText: "Ready. \(shortcut.readyHint)"
                     )
                 )
             case let .failure(failure):
@@ -183,7 +186,7 @@ final class TranscriptionEngine: ObservableObject {
         transition(
             to: Presentation(
                 state: .failed,
-                statusText: "Operation cancelled. Hold Right Option to try again."
+                statusText: "Operation cancelled. \(shortcut.retryHint)"
             )
         )
         logger.notice("Engine operation cancelled")
@@ -253,10 +256,10 @@ final class TranscriptionEngine: ObservableObject {
         transition(
             to: Presentation(
                 state: .idle,
-                statusText: "Ready. Hold Right Option to record, double-tap to lock"
+                statusText: "Ready. \(shortcut.readyHint)"
             )
         )
-        logger.notice("Recording start cancelled when right Option was released")
+        logger.notice("Recording start cancelled when the dictation key was released")
     }
 
     private func continueRecordingAfterPreflight(sessionIdentifier: UUID) {
@@ -378,7 +381,7 @@ final class TranscriptionEngine: ObservableObject {
                 self.transition(
                     to: Presentation(
                         state: .recording,
-                        statusText: "Recording… Release or tap Right Option to stop"
+                        statusText: shortcut.recordingHint
                     )
                 )
                 self.livePreview.start(
@@ -450,7 +453,7 @@ final class TranscriptionEngine: ObservableObject {
             case .encodeError:
                 self.finishFailure("The recording could not be encoded. Check disk space and the input device.")
             case .cancelled:
-                self.finishFailure("Recording was cancelled. Hold Right Option to try again.")
+                self.finishFailure("Recording was cancelled. \(shortcut.retryHint)")
             }
         }
     }
@@ -560,7 +563,7 @@ final class TranscriptionEngine: ObservableObject {
         sessionIdentifier: UUID
     ) async {
         logTranscriptionOutcome(outcome)
-        let outcomePresentation = Self.presentation(for: outcome)
+        let outcomePresentation = Self.presentation(for: outcome, shortcut: shortcut)
         transition(to: outcomePresentation)
 
         guard case let .success(text) = outcome else {
@@ -575,7 +578,7 @@ final class TranscriptionEngine: ObservableObject {
             return
         }
         logger.notice("Delivery completed; characters: \(text.count, privacy: .public)")
-        transition(to: Self.presentation(for: deliveryOutcome))
+        transition(to: Self.presentation(for: deliveryOutcome, shortcut: shortcut))
         finishSessionKeepingPresentation()
     }
 

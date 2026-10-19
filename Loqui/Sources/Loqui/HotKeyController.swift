@@ -5,11 +5,7 @@ import os
 
 private let hotKeyLogger = Logger(subsystem: AppIdentity.bundleIdentifier, category: "hotkey")
 
-/// `NX_DEVICERALTKEYMASK`: the device-dependent bit that separates the right
-/// Option key from the left one in a `flagsChanged` event.
-private let rightOptionModifierMask: UInt = 0x40
-
-enum RightOptionKeyPhase: Equatable, Sendable {
+enum DictationKeyPhase: Equatable, Sendable {
     case pressed
     case released
 }
@@ -37,9 +33,9 @@ enum HotKeyAvailability: Equatable, Sendable {
         case .registered:
             nil
         case .unregistered:
-            "Right Option recording is not active. The menu button still works."
+            "The dictation shortcut is not active. The menu button still works."
         case .monitorRegistrationFailed:
-            "Right Option recording could not start. Enable Accessibility access, then retry."
+            "The dictation shortcut could not start. Enable Accessibility access, then retry."
         }
     }
 }
@@ -47,7 +43,8 @@ enum HotKeyAvailability: Equatable, Sendable {
 @MainActor
 protocol GlobalHotKeyService: AnyObject {
     func install(
-        action: @escaping @MainActor @Sendable (RightOptionKeyPhase) -> Void
+        key: DictationKey,
+        action: @escaping @MainActor @Sendable (DictationKeyPhase) -> Void
     ) -> Result<Void, HotKeyInstallationError>
 
     func uninstall()
@@ -61,13 +58,15 @@ protocol HoldTimerScheduling: AnyObject {
     func cancel()
 }
 
-/// Converts global right-Option transitions into two recording gestures.
+/// Converts global dictation-key transitions into two recording gestures.
 /// Holding the key records for as long as it is held; two quick taps latch
-/// recording on until the next press stops it. A single tap does nothing, so
-/// right Option stays usable as an ordinary modifier.
+/// recording on until the next press stops it, unless the user turned
+/// hands-free mode off. A single tap does nothing, so the key stays usable as
+/// an ordinary modifier.
 @MainActor
 final class HotKeyController: ObservableObject {
     @Published private(set) var availability: HotKeyAvailability = .unregistered
+    @Published private(set) var shortcut: DictationShortcut
 
     private enum GestureState: Equatable {
         case idle
@@ -87,9 +86,13 @@ final class HotKeyController: ObservableObject {
     private var state: GestureState = .idle
     private var keyIsDown = false
     private var registrationIdentifier = UUID()
+    private var isSuspended = false
+    private let store: DictationShortcutStore?
 
-    init() {
-        service = SystemRightOptionKeyService()
+    init(store: DictationShortcutStore = DictationShortcutStore()) {
+        self.store = store
+        shortcut = store.load()
+        service = SystemDictationKeyService()
         holdTimer = SystemHoldTimer()
         holdThreshold = 0.25
         doubleTapInterval = max(0.25, NSEvent.doubleClickInterval)
@@ -98,6 +101,7 @@ final class HotKeyController: ObservableObject {
 
     init(
         service: any GlobalHotKeyService,
+        shortcut: DictationShortcut = .default,
         holdTimer: any HoldTimerScheduling = SystemHoldTimer(),
         holdThreshold: TimeInterval = 0.25,
         doubleTapInterval: TimeInterval = 0.35,
@@ -106,6 +110,8 @@ final class HotKeyController: ObservableObject {
         }
     ) {
         self.service = service
+        self.shortcut = shortcut
+        store = nil
         self.holdTimer = holdTimer
         self.holdThreshold = max(0.05, holdThreshold)
         self.doubleTapInterval = max(0.1, doubleTapInterval)
@@ -138,9 +144,52 @@ final class HotKeyController: ObservableObject {
     }
 
     /// Recorder failures and the maximum-duration limit can end a session
-    /// without another right-Option event. Reset so the next press starts
+    /// without another dictation-key event. Reset so the next press starts
     /// normally.
     func recordingSessionDidEnd() {
+        resetGesture()
+    }
+
+    /// Saves a new shortcut and starts watching its key right away. A recording
+    /// held or latched by the old key is stopped, because the old key's release
+    /// can no longer reach the gesture.
+    func update(_ newShortcut: DictationShortcut) {
+        guard newShortcut != shortcut else { return }
+        let keyChanged = newShortcut.key != shortcut.key
+        shortcut = newShortcut
+        store?.save(newShortcut)
+        if keyChanged {
+            stopActiveGesture()
+            if !isSuspended {
+                installSavedAction()
+            }
+        }
+    }
+
+    /// Stops watching the dictation key while Settings records a new one, so
+    /// pressing the current key there does not start a recording.
+    func suspend() {
+        guard !isSuspended else { return }
+        isSuspended = true
+        stopActiveGesture()
+        registrationIdentifier = UUID()
+        service.uninstall()
+        keyIsDown = false
+    }
+
+    func resume() {
+        guard isSuspended else { return }
+        isSuspended = false
+        installSavedAction()
+    }
+
+    private func stopActiveGesture() {
+        switch state {
+        case .holding, .latched:
+            action?(.stop)
+        case .idle, .pendingHold, .awaitingSecondTap, .ignoringUntilRelease:
+            break
+        }
         resetGesture()
     }
 
@@ -149,26 +198,28 @@ final class HotKeyController: ObservableObject {
             availability = .unregistered
             return
         }
+        guard !isSuspended else { return }
 
         service.uninstall()
         resetGesture()
         keyIsDown = false
         let identifier = UUID()
         registrationIdentifier = identifier
-        switch service.install(action: { [weak self] phase in
+        let key = shortcut.key
+        switch service.install(key: key, action: { [weak self] phase in
             guard let self, self.registrationIdentifier == identifier else { return }
             self.handle(phase, at: self.now())
         }) {
         case .success:
             availability = .registered
-            hotKeyLogger.notice("Global right-Option recording monitor registered")
+            hotKeyLogger.notice("Global dictation-key recording monitor registered; key: \(key.rawValue, privacy: .public)")
         case .failure(.monitorRegistrationFailed):
             availability = .monitorRegistrationFailed
-            hotKeyLogger.error("Global right-Option recording monitor registration failed")
+            hotKeyLogger.error("Global dictation-key recording monitor registration failed; key: \(key.rawValue, privacy: .public)")
         }
     }
 
-    private func handle(_ phase: RightOptionKeyPhase, at timestamp: TimeInterval) {
+    private func handle(_ phase: DictationKeyPhase, at timestamp: TimeInterval) {
         let isDown = phase == .pressed
         guard isDown != keyIsDown else { return }
         keyIsDown = isDown
@@ -205,7 +256,7 @@ final class HotKeyController: ObservableObject {
             break
         case .pendingHold:
             holdTimer.cancel()
-            state = .awaitingSecondTap(deadline: timestamp + doubleTapInterval)
+            state = shortcut.doubleTapLocks ? .awaitingSecondTap(deadline: timestamp + doubleTapInterval) : .idle
         case .holding:
             state = .idle
             action?(.stop)
@@ -258,17 +309,18 @@ final class SystemHoldTimer: HoldTimerScheduling {
 }
 
 @MainActor
-final class SystemRightOptionKeyService: GlobalHotKeyService {
+final class SystemDictationKeyService: GlobalHotKeyService {
     private var globalMonitor: Any?
     private var localMonitor: Any?
-    private var callbackContext: RightOptionKeyMonitorContext?
+    private var callbackContext: DictationKeyMonitorContext?
 
     func install(
-        action: @escaping @MainActor @Sendable (RightOptionKeyPhase) -> Void
+        key: DictationKey,
+        action: @escaping @MainActor @Sendable (DictationKeyPhase) -> Void
     ) -> Result<Void, HotKeyInstallationError> {
         uninstall()
 
-        let context = RightOptionKeyMonitorContext(action: action)
+        let context = DictationKeyMonitorContext(key: key, action: action)
         guard let globalMonitor = NSEvent.addGlobalMonitorForEvents(
             matching: .flagsChanged,
             handler: { event in
@@ -308,27 +360,32 @@ final class SystemRightOptionKeyService: GlobalHotKeyService {
     }
 }
 
-final class RightOptionKeyMonitorContext: @unchecked Sendable {
+final class DictationKeyMonitorContext: @unchecked Sendable {
     private let lock = NSLock()
-    private let action: @MainActor @Sendable (RightOptionKeyPhase) -> Void
-    private var rightOptionIsDown = false
+    private let key: DictationKey
+    private let action: @MainActor @Sendable (DictationKeyPhase) -> Void
+    private var keyIsDown = false
 
-    init(action: @escaping @MainActor @Sendable (RightOptionKeyPhase) -> Void) {
+    init(
+        key: DictationKey = .rightOption,
+        action: @escaping @MainActor @Sendable (DictationKeyPhase) -> Void
+    ) {
+        self.key = key
         self.action = action
     }
 
     func handle(keyCode: UInt16, modifierFlags: NSEvent.ModifierFlags) {
         // Other modifier events (including synthetic Command events used for
-        // paste) need not preserve the device-dependent right Option bit.
-        // Only the physical right Option key can change this gesture.
-        guard keyCode == 0x3D else { return }
-        let rightOptionIsDown = modifierFlags.rawValue & rightOptionModifierMask != 0
-        let phase = lock.withLock { () -> RightOptionKeyPhase? in
-            guard rightOptionIsDown != self.rightOptionIsDown else {
+        // paste) need not preserve the device-dependent bit for this key.
+        // Only the physical dictation key can change this gesture.
+        guard keyCode == key.keyCode else { return }
+        let keyIsDown = key.isDown(in: modifierFlags)
+        let phase = lock.withLock { () -> DictationKeyPhase? in
+            guard keyIsDown != self.keyIsDown else {
                 return nil
             }
-            self.rightOptionIsDown = rightOptionIsDown
-            return rightOptionIsDown ? .pressed : .released
+            self.keyIsDown = keyIsDown
+            return keyIsDown ? .pressed : .released
         }
         guard let phase else {
             return

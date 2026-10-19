@@ -121,8 +121,8 @@ cmd_launch() {
         logs="$("$LOG" show --start "$since" --style compact --predicate "subsystem == \"$BUNDLE_ID\"" 2>/dev/null || true)"
         grep -q 'Dependency preflight' <<<"$logs" && break
     done
-    if grep -q 'recording monitor registered' <<<"$logs"; then
-        echo "hotkey: right-Option monitor registered"
+    if grep -q "recording monitor registered" <<<"$logs"; then
+        echo "hotkey: $(grep -o "monitor registered; key: [A-Za-z]*" <<<"$logs" | tail -1 | sed "s/.*key: //") monitor registered"
     else
         echo "hotkey: monitor NOT registered (see: $0 logs)"
     fi

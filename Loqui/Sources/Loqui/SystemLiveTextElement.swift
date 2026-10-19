@@ -141,7 +141,7 @@ enum KeystrokeEvents {
         return events
     }
 
-    /// Right Option may still be physically held. Dictated text must arrive
+    /// The dictation key may still be physically held. Dictated text must arrive
     /// as text, without inheriting modifier keys or triggering shortcuts.
     static func post(_ events: [CGEvent], to processIdentifier: pid_t) {
         for event in events {

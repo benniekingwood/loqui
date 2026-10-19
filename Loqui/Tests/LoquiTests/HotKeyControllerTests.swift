@@ -29,8 +29,8 @@ final class HotKeyControllerTests: XCTestCase {
     }
 
     func testUnrelatedModifierEventsCannotReleaseHeldRightOption() async {
-        var phases: [RightOptionKeyPhase] = []
-        let context = RightOptionKeyMonitorContext { phases.append($0) }
+        var phases: [DictationKeyPhase] = []
+        let context = DictationKeyMonitorContext { phases.append($0) }
         let rightOptionFlags = NSEvent.ModifierFlags(rawValue: NSEvent.ModifierFlags.option.rawValue | 0x40)
         context.handle(keyCode: 0x3D, modifierFlags: rightOptionFlags)
         context.handle(keyCode: 0x37, modifierFlags: .command)
@@ -45,8 +45,8 @@ final class HotKeyControllerTests: XCTestCase {
     }
 
     func testRightOptionReleaseIsRecognizedWhileLeftOptionRemainsHeld() async {
-        var phases: [RightOptionKeyPhase] = []
-        let context = RightOptionKeyMonitorContext { phases.append($0) }
+        var phases: [DictationKeyPhase] = []
+        let context = DictationKeyMonitorContext { phases.append($0) }
         context.handle(keyCode: 0x3D, modifierFlags: NSEvent.ModifierFlags(rawValue: NSEvent.ModifierFlags.option.rawValue | 0x40))
         context.handle(keyCode: 0x3D, modifierFlags: .option)
         await drainMainQueue()
@@ -259,6 +259,115 @@ final class HotKeyControllerTests: XCTestCase {
 }
 
 @MainActor
+final class HotKeyControllerShortcutTests: XCTestCase {
+    func testHandsFreeOffMakesDoubleTapDoNothing() {
+        let harness = Harness(start: 10)
+        harness.controller.update(DictationShortcut(key: .rightOption, doubleTapLocks: false))
+
+        harness.latchRecording()
+
+        XCTAssertTrue(harness.intents.isEmpty)
+    }
+
+    func testHandsFreeOffStillRecordsWhileHeld() {
+        let harness = Harness(start: 10)
+        harness.controller.update(DictationShortcut(key: .rightOption, doubleTapLocks: false))
+
+        harness.service.send(.pressed)
+        harness.timer.fire()
+        harness.service.send(.released)
+
+        XCTAssertEqual(harness.intents, [.start, .stop])
+    }
+
+    func testChangingKeyReinstallsMonitorForNewKey() {
+        let harness = Harness(start: 10)
+
+        harness.controller.update(DictationShortcut(key: .rightCommand, doubleTapLocks: true))
+
+        XCTAssertEqual(harness.service.installedKeys, [.rightOption, .rightCommand])
+        XCTAssertEqual(harness.service.maximumConcurrentInstallations, 1)
+        XCTAssertEqual(harness.controller.availability, .registered)
+        XCTAssertEqual(harness.controller.shortcut.key, .rightCommand)
+    }
+
+    func testTogglingHandsFreeKeepsCurrentMonitor() {
+        let harness = Harness(start: 10)
+
+        harness.controller.update(DictationShortcut(key: .rightOption, doubleTapLocks: false))
+
+        XCTAssertEqual(harness.service.installCount, 1)
+    }
+
+    func testChangingKeyStopsRecordingHeldByOldKey() {
+        let harness = Harness(start: 10)
+        harness.service.send(.pressed)
+        harness.timer.fire()
+
+        harness.controller.update(DictationShortcut(key: .function, doubleTapLocks: true))
+
+        XCTAssertEqual(harness.intents, [.start, .stop])
+    }
+
+    func testSuspendIgnoresKeyUntilResume() {
+        let harness = Harness(start: 10)
+
+        harness.controller.suspend()
+        harness.service.send(.pressed)
+        harness.timer.fire()
+        harness.service.send(.released)
+        XCTAssertTrue(harness.intents.isEmpty)
+
+        harness.controller.resume()
+        harness.service.send(.pressed)
+        harness.timer.fire()
+        XCTAssertEqual(harness.intents, [.start])
+        XCTAssertEqual(harness.service.installCount, 2)
+    }
+
+    func testKeyChosenWhileSuspendedIsInstalledOnResume() {
+        let harness = Harness(start: 10)
+
+        harness.controller.suspend()
+        harness.controller.update(DictationShortcut(key: .rightControl, doubleTapLocks: true))
+        XCTAssertEqual(harness.service.installCount, 1)
+
+        harness.controller.resume()
+        XCTAssertEqual(harness.service.installedKeys, [.rightOption, .rightControl])
+    }
+
+    func testRightCommandContextIgnoresLeftCommandUsedForPaste() async {
+        var phases: [DictationKeyPhase] = []
+        let context = DictationKeyMonitorContext(key: .rightCommand) { phases.append($0) }
+        let rightCommandFlags = NSEvent.ModifierFlags(rawValue: NSEvent.ModifierFlags.command.rawValue | 0x10)
+        context.handle(keyCode: 0x36, modifierFlags: rightCommandFlags)
+        context.handle(keyCode: 0x37, modifierFlags: NSEvent.ModifierFlags(rawValue: NSEvent.ModifierFlags.command.rawValue | 0x18))
+        context.handle(keyCode: 0x37, modifierFlags: rightCommandFlags)
+        await drainMainQueue()
+        XCTAssertEqual(phases, [.pressed])
+        context.handle(keyCode: 0x36, modifierFlags: [])
+        await drainMainQueue()
+        XCTAssertEqual(phases, [.pressed, .released])
+    }
+
+    func testFunctionKeyContextUsesFunctionFlag() async {
+        var phases: [DictationKeyPhase] = []
+        let context = DictationKeyMonitorContext(key: .function) { phases.append($0) }
+        context.handle(keyCode: 0x3D, modifierFlags: NSEvent.ModifierFlags(rawValue: NSEvent.ModifierFlags.option.rawValue | 0x40))
+        context.handle(keyCode: 0x3F, modifierFlags: .function)
+        context.handle(keyCode: 0x3F, modifierFlags: [])
+        await drainMainQueue()
+        XCTAssertEqual(phases, [.pressed, .released])
+    }
+
+    private func drainMainQueue() async {
+        await withCheckedContinuation { continuation in
+            DispatchQueue.main.async { continuation.resume() }
+        }
+    }
+}
+
+@MainActor
 private final class Harness {
     let service = FakeHotKeyService()
     let timer = FakeHoldTimer()
@@ -333,10 +442,11 @@ private final class FakeHoldTimer: HoldTimerScheduling {
 @MainActor
 private final class FakeHotKeyService: GlobalHotKeyService {
     private var installResults: [Result<Void, HotKeyInstallationError>]
-    private var action: (@MainActor @Sendable (RightOptionKeyPhase) -> Void)?
+    private var action: (@MainActor @Sendable (DictationKeyPhase) -> Void)?
     private var activeInstallationCount = 0
 
     private(set) var installCount = 0
+    private(set) var installedKeys: [DictationKey] = []
     private(set) var uninstallCount = 0
     private(set) var maximumConcurrentInstallations = 0
 
@@ -345,9 +455,11 @@ private final class FakeHotKeyService: GlobalHotKeyService {
     }
 
     func install(
-        action: @escaping @MainActor @Sendable (RightOptionKeyPhase) -> Void
+        key: DictationKey,
+        action: @escaping @MainActor @Sendable (DictationKeyPhase) -> Void
     ) -> Result<Void, HotKeyInstallationError> {
         installCount += 1
+        installedKeys.append(key)
         let result = installResults.isEmpty ? .success(()) : installResults.removeFirst()
         if case .success = result {
             self.action = action
@@ -366,7 +478,7 @@ private final class FakeHotKeyService: GlobalHotKeyService {
         action = nil
     }
 
-    func send(_ phase: RightOptionKeyPhase) {
+    func send(_ phase: DictationKeyPhase) {
         action?(phase)
     }
 }
