@@ -107,14 +107,14 @@ final class CapturedAudioSink: @unchecked Sendable {
                 return nil
             }
 
-            var suppliedBuffer = false
+            let inputFlag = ConverterInputFlag()
             var conversionError: NSError?
             let status = converter.convert(to: converted, error: &conversionError) { _, inputStatus in
-                if suppliedBuffer {
+                if inputFlag.supplied {
                     inputStatus.pointee = .noDataNow
                     return nil
                 }
-                suppliedBuffer = true
+                inputFlag.supplied = true
                 inputStatus.pointee = .haveData
                 return monoBuffer
             }
@@ -232,4 +232,12 @@ final class CapturedAudioSink: @unchecked Sendable {
         peakAmplitude = max(peakAmplitude, peak)
         return true
     }
+}
+
+/// Tracks whether AVAudioConverter's input block has already handed over the
+/// buffer. The converter calls that block synchronously inside `convert`, so the
+/// flag is never touched concurrently, but newer SDKs type the block as
+/// `@Sendable`, which rejects mutating a captured local `var`.
+private final class ConverterInputFlag: @unchecked Sendable {
+    var supplied = false
 }
