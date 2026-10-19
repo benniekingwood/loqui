@@ -106,7 +106,7 @@ MINIMUM_SYSTEM_VERSION="$(plist_string "$FINAL_INFO" LSMinimumSystemVersion)" ||
     fail "final CFBundlePackageType differs from canonical Info.plist"
 [[ "$MINIMUM_SYSTEM_VERSION" == "$EXPECTED_MINIMUM_SYSTEM_VERSION" ]] || \
     fail "final LSMinimumSystemVersion differs from canonical Info.plist"
-[[ "$(plist_value "$FINAL_INFO" LSUIElement)" == 'true' ]] || fail "Loqui must remain a menu-bar-only app"
+[[ "$(plist_value "$FINAL_INFO" LSUIElement)" == 'false' ]] || fail "Loqui must show its Dock icon"
 [[ -n "$(plist_value "$FINAL_INFO" NSMicrophoneUsageDescription)" ]] || fail "microphone usage text is empty"
 
 EXECUTABLE="$APP_PATH/Contents/MacOS/$EXECUTABLE_NAME"
