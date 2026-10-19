@@ -143,6 +143,9 @@ private struct LoquiMark: View {
     }
 }
 
+/// The close button doubles as the card's timer: its outline starts fully lit
+/// and dims clockwise from twelve o'clock, and the card closes once the whole
+/// ring is dim.
 private struct CountdownCloseButton: View {
     let fraction: Double
     let action: () -> Void
@@ -150,17 +153,18 @@ private struct CountdownCloseButton: View {
     var body: some View {
         Button(action: action) {
             ZStack {
-                Circle().strokeBorder(.white.opacity(0.18), lineWidth: 1.5)
                 Circle()
-                    .trim(from: 0, to: fraction)
-                    .stroke(.white.opacity(0.7), style: StrokeStyle(lineWidth: 1.5, lineCap: .round))
+                    .stroke(.white.opacity(0.14), lineWidth: 2)
+                Circle()
+                    .trim(from: 1 - fraction, to: 1)
+                    .stroke(.white.opacity(0.92), style: StrokeStyle(lineWidth: 2, lineCap: .round))
                     .rotationEffect(.degrees(-90))
-                    .padding(0.75)
                 Image(systemName: "xmark")
-                    .font(.system(size: 9, weight: .bold))
-                    .foregroundStyle(.white.opacity(0.85))
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(.white.opacity(0.9))
             }
-            .frame(width: 24, height: 24)
+            .padding(1)
+            .frame(width: 26, height: 26)
             .contentShape(Circle())
         }
         .buttonStyle(.plain)
