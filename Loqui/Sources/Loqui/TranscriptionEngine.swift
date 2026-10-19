@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import Foundation
 import os
 
@@ -53,6 +54,10 @@ final class TranscriptionEngine: ObservableObject {
     @Published private(set) var state: State
     @Published private(set) var statusText: String
     @Published private(set) var modelRecovery: ModelRecovery?
+    /// Transcripts that could not be placed at a cursor, for the transcript
+    /// card. A subject rather than published state, so the text is not kept
+    /// after the card has shown it.
+    let unplacedTranscripts = PassthroughSubject<UnplacedTranscript, Never>()
     /// Names the user's dictation key in status text. Kept in sync with
     /// `HotKeyController.shortcut` by the app delegate.
     var shortcut: DictationShortcut = .default
@@ -587,6 +592,9 @@ final class TranscriptionEngine: ObservableObject {
         }
         logger.notice("Delivery completed; characters: \(text.count, privacy: .public)")
         transition(to: Self.presentation(for: deliveryOutcome, shortcut: shortcut))
+        if let unplaced = UnplacedTranscript(text: text, outcome: deliveryOutcome) {
+            unplacedTranscripts.send(unplaced)
+        }
         finishSessionKeepingPresentation()
     }
 

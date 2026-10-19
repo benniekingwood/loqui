@@ -512,3 +512,51 @@ final class TextDeliveryTests: XCTestCase {
         }
     }
 }
+
+extension TextDeliveryTests {
+    func testFinalTranscriptIsNotTypedOrCopiedWhenNoTextFieldIsFocused() async {
+        let target = makeTarget(pid: 140)
+        let accessibility = DeliveryFakeAccessibility(insertionOutcome: .inserted)
+        accessibility.focusedInputKindValue = .notText
+        let pasteboard = DeliveryFakePasteboard()
+        let eventPoster = DeliveryFakeEventPoster()
+        // No draft was started, as the real editor reports when updates were skipped.
+        let liveTextEditor = DeliveryFakeLiveTextEditor()
+        liveTextEditor.finalizationOutcome = .noActiveDraft
+        liveTextEditor.cancellationOutcome = .noActiveDraft
+        let service = makeService(
+            workspace: DeliveryFakeWorkspace(capturedTarget: target, frontmost: target),
+            accessibility: accessibility,
+            pasteboard: pasteboard,
+            eventPoster: eventPoster,
+            liveTextEditor: liveTextEditor
+        )
+
+        let updated = await service.updateLiveTranscript("draft", in: target)
+        let outcome = await service.finalizeLiveTranscript("final text", in: target)
+
+        XCTAssertFalse(updated)
+        XCTAssertEqual(liveTextEditor.updatedTexts, [])
+        XCTAssertEqual(outcome, .noTextInput)
+        XCTAssertEqual(accessibility.insertedTargets, [])
+        XCTAssertEqual(pasteboard.replaceTexts, [])
+        XCTAssertEqual(eventPoster.postedTargets, [])
+    }
+
+    func testUnknownFocusKeepsTheExistingInsertPath() async {
+        let target = makeTarget(pid: 141)
+        let accessibility = DeliveryFakeAccessibility(insertionOutcome: .inserted)
+        accessibility.focusedInputKindValue = .unknown
+        let service = makeService(
+            workspace: DeliveryFakeWorkspace(capturedTarget: target, frontmost: target),
+            accessibility: accessibility,
+            pasteboard: DeliveryFakePasteboard(),
+            eventPoster: DeliveryFakeEventPoster()
+        )
+
+        let outcome = await service.deliver("hello", to: target)
+
+        XCTAssertEqual(outcome, .inserted)
+        XCTAssertEqual(accessibility.insertedTargets, [target])
+    }
+}

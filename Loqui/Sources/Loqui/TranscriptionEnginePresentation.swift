@@ -83,6 +83,11 @@ extension TranscriptionEngine {
                     statusText: "Pasted, but the previous clipboard could not be restored."
                 )
             }
+        case .noTextInput:
+            Presentation(
+                state: .idle,
+                statusText: "No text field was focused. Copy the transcript from the card on screen."
+            )
         case let .copiedForManualPaste(reason):
             switch reason {
             case .noSessionTarget:

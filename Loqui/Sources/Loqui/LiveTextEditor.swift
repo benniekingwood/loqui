@@ -21,6 +21,9 @@ enum DeliveryOutcome: Equatable, Sendable {
     case inserted
     case pasted(restoration: ClipboardRestorationOutcome)
     case copiedForManualPaste(ManualPasteReason)
+    /// The target app's focus is clearly not a text field. Nothing was typed,
+    /// pasted, or copied; the transcript is offered on screen instead.
+    case noTextInput
     case failed(DeliveryFailure)
     case cancelled(restoration: ClipboardRestorationOutcome?)
 }

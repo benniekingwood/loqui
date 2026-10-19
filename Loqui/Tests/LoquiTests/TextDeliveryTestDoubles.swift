@@ -75,6 +75,7 @@ final class DeliveryFakeAccessibility: AccessibilityServing {
     var permission = true
     var insertionOutcome: AccessibilityInsertionOutcome
     var windowAvailabilityValue: TargetWindowAvailability
+    var focusedInputKindValue: FocusedInputKind = .unknown
     private(set) var insertedTargets: [PasteTarget] = []
 
     init(
@@ -96,6 +97,10 @@ final class DeliveryFakeAccessibility: AccessibilityServing {
 
     func windowAvailability(of target: PasteTarget) -> TargetWindowAvailability {
         windowAvailabilityValue
+    }
+
+    func focusedInputKind(in target: PasteTarget) -> FocusedInputKind {
+        focusedInputKindValue
     }
 }
 

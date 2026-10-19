@@ -597,3 +597,36 @@ final class TranscriptionEngineStateTests: XCTestCase {
         XCTFail("Condition was not reached", file: file, line: line)
     }
 }
+
+extension TranscriptionEngineStateTests {
+    func testTranscriptWithNoTextFieldIsOfferedToTheCardAndEngineReturnsToIdle() async {
+        let delivery = EngineDeliveryFake(outcome: .noTextInput)
+        let engine = makeEngine(transcriber: EngineTranscriberFake(outcome: .success("hello there")), delivery: delivery)
+        var offered: [UnplacedTranscript] = []
+        let subscription = engine.unplacedTranscripts.sink { offered.append($0) }
+        defer { subscription.cancel() }
+
+        engine.toggleRecording()
+        await waitUntil { engine.state == .recording }
+        engine.toggleRecording()
+        await waitUntil { engine.state == .idle && !offered.isEmpty }
+
+        XCTAssertEqual(offered, [UnplacedTranscript(text: "hello there", reason: .noTextInput)])
+        XCTAssertTrue(engine.statusText.hasPrefix("No text field was focused"))
+    }
+
+    func testInsertedTranscriptIsNotOfferedToTheCard() async {
+        let delivery = EngineDeliveryFake(outcome: .inserted)
+        let engine = makeEngine(transcriber: EngineTranscriberFake(outcome: .success("hello there")), delivery: delivery)
+        var offered: [UnplacedTranscript] = []
+        let subscription = engine.unplacedTranscripts.sink { offered.append($0) }
+        defer { subscription.cancel() }
+
+        engine.toggleRecording()
+        await waitUntil { engine.state == .recording }
+        engine.toggleRecording()
+        await waitUntil { engine.state == .idle }
+
+        XCTAssertEqual(offered, [])
+    }
+}
