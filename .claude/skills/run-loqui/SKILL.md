@@ -3,7 +3,7 @@ name: run-loqui
 description: Build, run, and drive the Loqui macOS menu bar dictation app. Use when asked to run, start, launch, build, bundle, quit, screenshot, or check the logs of Loqui, to smoke-test transcription with the real Parakeet model, or to run its tests.
 ---
 
-Loqui is a macOS menu bar app (no windows, no Dock icon) that records while
+Loqui is a macOS menu bar app with a Dock icon and no windows. It records while
 right Option is held and types the Parakeet transcription at the cursor.
 Drive it with `.claude/skills/run-loqui/driver.sh`. All paths are relative to
 the repo root. macOS on Apple Silicon only. Verified on macOS 26 with Swift 6.3.3.

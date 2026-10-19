@@ -1,7 +1,7 @@
 # Development-only Xcode project.
 #
 # Loqui needs a real app bundle to work: microphone TCC, accessibility, and
-# LSUIElement all depend on it, so `swift run` cannot exercise the app. This
+# the Dock icon all depend on it, so `swift run` cannot exercise the app. This
 # generates an Xcode app target for running and debugging that bundle.
 #
 # Releases are NOT built from here. `swift build` + ./bundle.sh remains the
