@@ -83,6 +83,12 @@ protocol AudioRecording: AnyObject {
     func start(maximumDuration: TimeInterval) async -> Bool
     func stop() async -> RecorderStopOutcome
     func cancel()
+    /// Loudest linear sample (0...1) since the previous call, for level meters.
+    func takeRecentPeakAmplitude() -> Float
+}
+
+extension AudioRecording {
+    func takeRecentPeakAmplitude() -> Float { 0 }
 }
 
 enum AudioRecorderCreationError: Error, Equatable, Sendable {

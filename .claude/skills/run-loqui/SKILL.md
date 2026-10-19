@@ -76,7 +76,7 @@ seconds the first time and under 1 second after that.
 ## Test
 
 ```bash
-.claude/skills/run-loqui/driver.sh test   # 183 tests, 3 skipped by design
+.claude/skills/run-loqui/driver.sh test   # 189 tests, 3 skipped by design
 ```
 
 ## Run (human path)

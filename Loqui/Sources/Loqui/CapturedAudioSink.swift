@@ -12,6 +12,7 @@ final class CapturedAudioSink: @unchecked Sendable {
     private var converter: AVAudioConverter?
     private var monoInputFormat: AVAudioFormat?
     private var peakAmplitude: Float = 0
+    private var recentPeakAmplitude: Float = 0
     private var acceptingAudio = false
     private var receivedBuffers: UInt64 = 0
     private var successfulBufferWrites: UInt64 = 0
@@ -25,6 +26,16 @@ final class CapturedAudioSink: @unchecked Sendable {
     var peakLevel: Float {
         let amplitude = lock.withLock { peakAmplitude }
         return amplitude > 0 ? 20 * log10(amplitude) : -.infinity
+    }
+
+    /// Loudest linear sample (0...1) captured since the previous call. The
+    /// recording overlay polls this to animate its level bars; it does not
+    /// affect `peakLevel`, which the silence check relies on.
+    func takeRecentPeakAmplitude() -> Float {
+        lock.withLock {
+            defer { recentPeakAmplitude = 0 }
+            return recentPeakAmplitude
+        }
     }
 
     var pendingErrorDiagnostic: RecorderErrorDiagnostic? {
@@ -230,6 +241,7 @@ final class CapturedAudioSink: @unchecked Sendable {
         }
 
         peakAmplitude = max(peakAmplitude, peak)
+        recentPeakAmplitude = max(recentPeakAmplitude, peak)
         return true
     }
 }
