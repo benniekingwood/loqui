@@ -77,6 +77,7 @@ done
 CANONICAL_KEYS=(
     CFBundleDevelopmentRegion
     CFBundleDisplayName
+    CFBundleIconFile
     CFBundleInfoDictionaryVersion
     LSUIElement
     NSHighResolutionCapable
@@ -140,6 +141,8 @@ BUNDLED_MODEL="$APP_PATH/Contents/Resources/models/$MODEL_DIRECTORY_NAME"
 [[ -r "$APP_PATH/Contents/Resources/parakeet-model.json" ]] || fail "Loqui model manifest resource is missing"
 cmp -s "$CANONICAL_MODEL_MANIFEST" "$APP_PATH/Contents/Resources/parakeet-model.json" || fail "bundled model manifest differs from the reviewed source"
 [[ -d "$APP_PATH/Contents/Resources/FluidAudio_FluidAudio.bundle" ]] || fail "FluidAudio resources are missing"
+APP_ICON="$(plist_string "$FINAL_INFO" CFBundleIconFile)" || fail "final Info.plist is missing CFBundleIconFile"
+[[ -r "$APP_PATH/Contents/Resources/${APP_ICON%.icns}.icns" ]] || fail "app icon ${APP_ICON%.icns}.icns is missing"
 LOQUI_DEPENDENCY_MANIFEST="$DEPENDENCY_MANIFEST" \
     "$SCRIPT_DIR/dependency-tool.sh" verify-model "$BUNDLED_MODEL"
 

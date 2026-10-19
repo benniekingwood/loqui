@@ -145,6 +145,9 @@ chmod 755 "$MACOS/$EXECUTABLE_NAME"
 cp -R -- "$MODEL_PATH" "$RESOURCES/models/$MODEL_DIRECTORY_NAME"
 # SwiftPM resource bundles are required by Bundle.module in Loqui and FluidAudio.
 cp -- "$CANONICAL_MODEL_MANIFEST" "$RESOURCES/parakeet-model.json"
+# CFBundleIconFile in Info.plist names this icon; regenerate it with
+# scripts/generate-brand-assets.swift.
+cp -- "$PACKAGE_DIR/AppIcon.icns" "$RESOURCES/AppIcon.icns"
 PRODUCT_DIRECTORY="$(dirname -- "$ARM64_PRODUCT")"
 for resource_bundle in "$PRODUCT_DIRECTORY"/*.bundle; do
     [[ -d "$resource_bundle" ]] || continue

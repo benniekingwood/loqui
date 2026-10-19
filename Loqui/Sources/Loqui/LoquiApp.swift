@@ -22,7 +22,7 @@ struct MenuBarIcon: View {
     @EnvironmentObject var engine: TranscriptionEngine
 
     var body: some View {
-        Image(systemName: engine.state == .recording ? "mic.fill" : "waveform")
+        Image(nsImage: MenuBarGlyph.image(recording: engine.state == .recording))
             .accessibilityLabel(engine.state == .recording ? "Recording" : "Loqui")
     }
 }

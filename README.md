@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/brand/loqui-icon.png" width="128" height="128" alt="Loqui app icon: coral, amber, mint and blue sound bars ending in a white text cursor">
+</p>
+
 # Loqui
 
 Loqui is a macOS menu bar app for recording speech, transcribing it live at the cursor with Parakeet, and inserting the final transcription into the focused text field.

@@ -51,8 +51,10 @@ model: Parakeet TDT 0.6B v2 ready
 
 `ss` writes `<tag>-full.png` (whole screen) and `<tag>-icon.png` (the
 status icon itself, captured by window ID). It adds `<tag>-menubar.png` only
-when the icon is actually visible. **Read the icon PNG.** Idle shows a
-`waveform` symbol and recording shows `mic.fill`.
+when the icon is actually visible. **Read the icon PNG.** Idle shows three
+sound bars and a text cursor. Recording shows taller bars and a dot. While
+the icon sits under the notch, macOS tints it white, so view the PNG on a
+dark background.
 
 What happened during real use shows up in `logs`. A successful dictation logs
 this sequence: `Recording started with verified input`, `Recording finished;
