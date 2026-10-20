@@ -29,28 +29,18 @@ die() { echo "error: $*" >&2; exit 1; }
 
 app_pid() { pgrep -f "^$EXECUTABLE" | head -1 || true; }
 
-menubar_items() { swift "$SKILL_DIR/menubar-items.swift"; }
+# Status items live in the menu bar strip (y = 0). Loqui's floating panels
+# share the status-bar window level, so filter them out by position.
+menubar_items() { swift "$SKILL_DIR/menubar-items.swift" | awk -F'\t' '$4 == 0'; }
 
 item_row() {
     local id; id="$(cat "$ITEM_FILE" 2>/dev/null)" || return 1
     menubar_items | awk -F'\t' -v id="$id" '$1 == id'
 }
 
-# Prints "identity<TAB>teamID" for the first Apple Development identity,
-# preferring $LOQUI_DEVELOPMENT_TEAM. The team is the certificate's OU, which
-# is NOT the ID in parentheses in the identity name.
+# "identity<TAB>teamID" for local signing; see scripts/signing-identity.sh.
 signing_identity() {
-    local name subject team first=""
-    while IFS= read -r name; do
-        subject="$(security find-certificate -c "$name" -p 2>/dev/null | openssl x509 -noout -subject 2>/dev/null)" || continue
-        team="$(sed -nE 's/.*OU ?= ?([A-Z0-9]+).*/\1/p' <<<"$subject")"
-        [[ -n "$team" ]] || continue
-        [[ -z "$first" ]] && first="$name"$'\t'"$team"
-        if [[ -n "${LOQUI_DEVELOPMENT_TEAM:-}" && "$team" == "$LOQUI_DEVELOPMENT_TEAM" ]]; then
-            printf '%s\t%s\n' "$name" "$team"; return
-        fi
-    done < <(security find-identity -v -p codesigning | sed -nE 's/.*"(Apple Development: [^"]+)".*/\1/p')
-    [[ -n "$first" ]] && printf '%s\n' "$first"
+    "$ROOT/scripts/signing-identity.sh" || true
 }
 
 cmd_build() {
@@ -76,8 +66,8 @@ cmd_build() {
 cmd_quit() {
     local pid; pid="$(app_pid)"
     [[ -n "$pid" ]] || { echo "not running"; return 0; }
-    # Same mechanism as scripts/macos-app-lifecycle.ts: no Apple Events, so no
-    # Automation consent prompt.
+    # NSRunningApplication.terminate needs no Apple Events, so it never
+    # triggers an Automation consent prompt (same as scripts/deploy.sh).
     osascript -l JavaScript -e "ObjC.import('AppKit'); \$.NSRunningApplication.runningApplicationsWithBundleIdentifier('$BUNDLE_ID').js.forEach(a => a.terminate); ''" >/dev/null
     for _ in $(seq 50); do kill -0 "$pid" 2>/dev/null || { echo "quit pid $pid"; rm -f "$ITEM_FILE"; return 0; }; sleep 0.1; done
     kill -TERM "$pid" 2>/dev/null || true
@@ -119,15 +109,15 @@ cmd_launch() {
     while (( waited < ${LOQUI_MODEL_WAIT:-90} )); do
         sleep 2; waited=$(( waited + 2 ))
         logs="$("$LOG" show --start "$since" --style compact --predicate "subsystem == \"$BUNDLE_ID\"" 2>/dev/null || true)"
-        grep -q 'Dependency preflight' <<<"$logs" && break
+        grep -qE 'Speech model (ready|preflight failed)' <<<"$logs" && break
     done
     if grep -q "recording monitor registered" <<<"$logs"; then
         echo "hotkey: $(grep -o "monitor registered; key: [A-Za-z]*" <<<"$logs" | tail -1 | sed "s/.*key: //") monitor registered"
     else
         echo "hotkey: monitor NOT registered (see: $0 logs)"
     fi
-    if grep -q 'Dependency preflight ready' <<<"$logs"; then
-        echo "model: $(grep -o 'Dependency preflight ready; [^;]*' <<<"$logs" | tail -1 | sed 's/.*; //') ready"
+    if grep -q 'Speech model ready' <<<"$logs"; then
+        echo "model: $(grep -o 'Speech model ready; [^;]*' <<<"$logs" | tail -1 | sed 's/.*; //') ready"
     else
         echo "model: NOT ready (see: $0 logs)"
     fi

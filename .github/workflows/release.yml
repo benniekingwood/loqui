@@ -53,7 +53,7 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: models
-          key: loqui-model-v1-${{ hashFiles('Loqui/Sources/Loqui/Resources/parakeet-model.json') }}
+          key: loqui-model-v1-${{ hashFiles('Loqui/Sources/LoquiParakeet/Resources/parakeet-model.json') }}
 
       - name: Install or verify the pinned production model
         run: ./scripts/dependency-tool.sh install-model

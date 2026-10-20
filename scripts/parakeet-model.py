@@ -16,7 +16,7 @@ import urllib.request
 import uuid
 
 ROOT = Path(__file__).resolve().parent.parent
-CANONICAL_MANIFEST = ROOT / "Loqui/Sources/Loqui/Resources/parakeet-model.json"
+CANONICAL_MANIFEST = ROOT / "Loqui/Sources/LoquiParakeet/Resources/parakeet-model.json"
 
 
 def load_manifest(path):

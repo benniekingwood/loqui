@@ -11,7 +11,7 @@ CANONICAL_RELEASE_FILES=(
     VERSION
     dependencies.env
     Loqui/Package.resolved
-    Loqui/Sources/Loqui/Resources/parakeet-model.json
+    Loqui/Sources/LoquiParakeet/Resources/parakeet-model.json
     Loqui/Info.plist
     Loqui/Loqui.entitlements
 )
@@ -93,7 +93,7 @@ if [[ -n "${LOQUI_DEPENDENCY_MANIFEST:-}" && "$LOQUI_DEPENDENCY_MANIFEST" != "$D
     fail "release does not accept a dependency manifest override"
 fi
 export LOQUI_DEPENDENCY_MANIFEST="$DEPENDENCY_MANIFEST"
-CANONICAL_MODEL_MANIFEST="$SCRIPT_DIR/Loqui/Sources/Loqui/Resources/parakeet-model.json"
+CANONICAL_MODEL_MANIFEST="$SCRIPT_DIR/Loqui/Sources/LoquiParakeet/Resources/parakeet-model.json"
 if [[ -n "${LOQUI_MODEL_MANIFEST:-}" && "$LOQUI_MODEL_MANIFEST" != "$CANONICAL_MODEL_MANIFEST" ]]; then
     fail "release does not accept a model manifest override"
 fi

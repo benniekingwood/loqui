@@ -4,231 +4,167 @@
 
 # Loqui
 
-Loqui is a macOS menu bar app for recording speech, transcribing it live at the cursor with Parakeet, and inserting the final transcription into the focused text field.
+Loqui is private, on-device dictation for macOS. Hold a key, speak, and your
+words appear at the cursor in whatever app you are using. Speech never leaves
+your Mac: transcription runs locally with NVIDIA's Parakeet TDT 0.6B v2 model on
+Apple Silicon.
 
-While recording, Loqui replaces Parakeet's latest draft directly at the
-captured cursor and shows an active microphone in the menu bar. Fields that
-answer Accessibility are edited in place. Fields that do not, such as Sublime
-Text's editor or GPU-rendered terminals, receive drafts as keystrokes: only the
-changed tail is deleted and retyped, and only while that app stays frontmost.
-Each draft is a full Parakeet pass over a snapshot of the recording so far, so
-the first words appear within about half a second and drafts read like the
-final text. When recording stops, Loqui cancels the draft loop and replaces the draft
-with one final transcription of the complete recording. This final pass uses
-fresh decoder state and the same loaded weights. Final text is trimmed without
-rewriting identifiers, symbols, or instructions; an LLM cleanup stage is not
-part of this workflow.
+## What it does
 
-Hold the right Option key to record and release it to stop, or double-tap it to
-lock recording on until the next right-Option press stops it. A single tap does
-nothing, so right Option stays usable as an ordinary modifier. Loqui opens
-and verifies the microphone silently, discards that warm-up audio, then plays a
-short two-note ready chime; speech after the chime is what enters the recording. A distinct
-stop cue plays once the microphone closes, including at the recording time
-limit, while final transcription continues.
-
-Loqui records from the input chosen under **Input** in the menu bar. The
-default follows System Settings, which is rarely what you want if you speak into
-an audio interface while the Mac's default input is still the built-in
-microphone — pick the interface once and Loqui remembers it, falling back to
-the system default whenever that device is unplugged. A recording that never
-rises above silence is reported by name instead of submitted to the recognizer.
-
-Loqui does not call a recording ready until microphone buffers have actually
-reached its WAV file. If macOS changes an input route during startup or capture
-— common when Bluetooth headphones switch profiles — Loqui resolves a fresh
-CoreAudio device ID and retries within a fixed bound. An input-only AUHAL keeps
-capture independent of playback, and a watchdog recovers stalled input even when
-macOS does not send a route notification. Device setup, chime playback, resampling,
-and disk writes run off the UI thread. The resampler flushes its trailing audio
-on stop and format changes so key-up does not clip the final syllable.
+- **Hold to dictate.** Hold the dictation key (Right Option by default), wait
+  for the short ready chime, speak, and release. Double-tap the key for
+  hands-free mode, then tap it once to stop.
+- **Live drafts.** Words appear at the cursor while you speak and are replaced
+  by one final, complete transcription when you stop.
+- **Works where you type.** Text fields that support Accessibility are edited in
+  place. Editors and GPU-rendered terminals that don't receive the text as
+  keystrokes instead.
+- **Recording indicator.** A small pill in Loqui's Spectrum colors floats above
+  the Dock while Loqui listens, following your voice level.
+- **Transcript card.** If nothing editable has focus, Loqui doesn't type into
+  the void. It shows your words in a card with a Copy button.
+- **Settings.** Choose the dictation key (Right Option, Right Command, Right
+  Control, or Fn), toggle hands-free mode, pick the microphone, and turn sound
+  cues and the indicator on or off. Open Settings from the menu bar icon, with
+  ⌘, or by clicking Loqui in the Dock.
 
 ## Requirements
 
-- macOS 14+ on Apple Silicon; Parakeet requires the native arm64 app
-- Parakeet TDT 0.6B v2 Core ML assets (about 464 MB; included in packaged apps)
-- Python 3.9+ for model setup and bundle verification
-- Accessibility access for auto-insert and synthetic paste fallback
-- Microphone access
+- macOS 14 or newer on Apple Silicon. Intel Macs and Rosetta get a clear
+  unsupported-hardware message instead of a crash.
+- Microphone access, and Accessibility access so Loqui can type at the cursor.
+- About 470 MB for the speech model. Packaged apps include it.
+- Xcode or the Command Line Tools with Swift 6, and Python 3.9+ for model setup.
 
-## Local Development
-
-To build the self-contained Universal 2 app and deploy it to
-`/Applications/Loqui.app`, run from the repository root or the `Loqui/`
-Swift package directory:
+## Getting started
 
 ```sh
-bun loqui
+./setup.sh              # download and verify the pinned model, build once
+./scripts/deploy.sh     # build, sign, and install /Applications/Loqui.app
 ```
 
-This command bundles and verifies the pinned model, signs with the first Apple
-Development identity in the local keychain when one is available, and stages
-the new bundle before replacing the installed app. If Loqui is running, the
-command quits it before deployment and restarts the installed build afterward
-through the same verified macOS launch lifecycle.
+`deploy.sh` signs with the first Apple Development identity in your keychain
+(set `LOQUI_DEVELOPMENT_TEAM` to choose a team), verifies the bundle, swaps it
+into `/Applications` atomically, and relaunches Loqui if it was running. Without
+a certificate it signs ad-hoc, and macOS asks again for Microphone and
+Accessibility after each install.
 
-The launcher identifies the running app by bundle identifier, waits for normal
-AppKit cleanup and LaunchServices deregistration, and retries transient macOS
-handoff failures such as error `-609`. It only reports success after the exact
-new executable has remained running.
-
-Without an Apple Development identity it falls back to ad-hoc signing, which
-can require renewed Accessibility and microphone grants after deployment.
-
-From a clean checkout, run:
-
-```sh
-./setup.sh
-```
-
-Setup downloads and verifies every file of the pinned English Parakeet v2
-model, then builds the release executable. FluidAudio 0.17.4 is linked into
-Loqui through Swift Package Manager; no separate transcription executable
-or Homebrew STT formula is required. Setup prints the built executable path.
-Use `bun loqui` to build and deploy the app, or `./bundle.sh` to build a local
-app bundle with macOS permissions.
-The built executable is located at:
-
-```sh
-"$(pwd)/Loqui/.build/release/Loqui"
-```
-
-The development executable infers the repository root from its SwiftPM
-`.build` path, so it discovers models installed under `models/` without a
-machine-specific source path. To build the signed local Universal 2 app bundle
-instead, run:
+To build the app bundle in place without installing it:
 
 ```sh
 ./bundle.sh
 open -a "$PWD/Loqui.app"
 ```
 
-### Debugging in Xcode
-
-Loqui needs a real app bundle to exercise: microphone access, accessibility,
-and the menu-bar-only presentation all depend on it, so `swift run` cannot run
-the app. To debug it with breakpoints, generate a development Xcode project:
-
-```sh
-brew install xcodegen   # once
-./scripts/generate-xcodeproj.sh
-open Loqui.xcodeproj
-```
-
-The project is generated from [project.yml](project.yml) and is not tracked;
-regenerate it after adding or removing sources. It reads the same canonical
-`Loqui/Info.plist` and entitlements the release path uses, and a build phase
-injects `CFBundleVersion` and `CFBundleShortVersionString` from `VERSION`, so an
-Xcode build reports the same version as a released one. Its scheme sets
-`LOQUI_DEVELOPMENT_ROOT` to `$(SRCROOT)`, because a build running from
-DerivedData cannot infer the checkout the way the SwiftPM executable does.
-
-A bare `xcodegen generate` also works. Prefer the script: it additionally fails
-when the names in `project.yml` drift from the canonical `Info.plist`, and it
-resolves local signing, neither of which a plain `xcodegen` run can do.
-
-Development builds are signed with your own Apple Development certificate, which
-the script finds in your keychain and writes to an untracked `Local.xcconfig`.
-When the keychain holds several teams, it prefers team `K78G42H4U2`; set
-`LOQUI_DEVELOPMENT_TEAM` to choose a different one. This matters for more than trust prompts: an ad-hoc signature's designated
-requirement pins the exact code hash, so every rebuild invalidates the
-Accessibility and microphone grants and macOS re-prompts on the next paste, while
-the stale entry still shows as enabled in System Settings. A certificate identity
-keeps that requirement stable, so the grants survive rebuilds. Without a
-certificate the project still builds ad-hoc, with that caveat.
-
-After switching signing identities, clear the stale grant once:
+After switching signing identities, clear the stale Accessibility grant once:
 
 ```sh
 tccutil reset Accessibility com.benniekingwood.loqui
 ```
 
-Xcode builds are ad-hoc signed and for development only. Release artifacts still
-come from `./bundle.sh`, which is what CI verifies.
+## Architecture
 
-See [docs/RELEASING.md](docs/RELEASING.md) for the architecture, signing,
-notarization, and required-check policy.
+Loqui is a Swift package of small modules with one-way dependencies. Every
+module talks to the others through contracts defined in `LoquiCore`, so a
+component can be replaced without touching the rest.
 
-## Parakeet transcription workflow
+```mermaid
+flowchart TD
+    App[Loqui app<br/>composition root] --> Interface[LoquiInterface<br/>menu bar, Settings, indicator, card]
+    App --> Parakeet[LoquiParakeet<br/>speech backend]
+    App --> Delivery[LoquiDelivery<br/>text at the cursor]
+    App --> Audio[LoquiAudio<br/>capture, devices, cues]
+    App --> Shortcuts[LoquiShortcuts<br/>dictation key]
+    Interface --> Audio
+    Interface --> Shortcuts
+    Interface --> Core
+    Parakeet --> Core[LoquiCore<br/>engine and contracts]
+    Delivery --> Core
+    Audio --> Core
+    Shortcuts --> Core
+    Parakeet --> FluidAudio[(FluidAudio)]
+```
 
-The app loads Parakeet TDT 0.6B v2 through [FluidAudio](https://github.com/FluidInference/FluidAudio).
-It uses Core ML's CPU and Neural Engine on Apple Silicon. The Universal 2 app
-shows an unsupported-hardware message on Intel or under Rosetta before loading
-models. Weights remain resident between recordings. The first load may take
-longer while Core ML compiles for the device.
+| Module | Responsibility |
+|---|---|
+| `LoquiCore` | The dictation engine and state machine, plus the contracts every other module implements: recording, speech, delivery, cues, and the shortcut model. Imports only Foundation, Combine, and os. |
+| `LoquiAudio` | Microphone capture through an input-only audio unit, input-device selection, recording files, and sound cues. |
+| `LoquiParakeet` | The speech backend. Verifies the pinned model and runs Parakeet through FluidAudio. The only module that imports FluidAudio. |
+| `LoquiDelivery` | Places text at the cursor: Accessibility edits, keystroke drafts, the paste fallback, and focus detection. |
+| `LoquiShortcuts` | The global dictation-key monitor and the shortcut recorder used by Settings. |
+| `LoquiInterface` | The menu bar menu and icon, the Settings window, the recording indicator, and the transcript card. |
+| `Loqui` | The app itself: `AppEnvironment` picks the concrete implementations, and `AppDelegate` runs the lifecycle. |
 
-Live preview re-transcribes a snapshot of the open recording every quarter
-second plus inference time. Parakeet decodes 3 seconds of audio in under 0.1
-seconds, 30 seconds in about 0.2 seconds, and the 5-minute maximum in about 0.9
-seconds on Apple Silicon, so drafts stay current for the whole recording. When
-recording stops, the microphone closes promptly, preview work is cancelled, and
-the complete recording receives one final audio pass before delivery without
-waiting for preview cleanup.
+`LoquiArchitectureTests` enforces these boundaries on every test run. A module
+that imports past its layer, a second package dependency, or any import of
+FluidAudio outside `LoquiParakeet` fails the build.
 
-Inference is offline. Loqui uses `AsrModels.loadLocal`, disables SDK network
-fetches, and suppresses SDK transcript logging. Setup is the only model-download
-step. Optional vocabulary boosting and LLM text cleanup can be added separately.
+### Swapping the speech backend
 
-## Dependency discovery and preflight
+The engine depends only on `SpeechTranscribing` and `SpeechModelPreflighting`
+from `LoquiCore`. A new backend is a module that implements both. Point
+`AppEnvironment.live()` at it and nothing else changes.
 
-Loqui resolves and loads local models before requesting microphone permission
-or allocating recording files. Missing, incomplete, unreadable, or incorrectly
-sized assets become visible setup errors. Core ML load failures remain distinct
-from successful no-speech results. Startup logs include the SDK version and
-resolution source; paths remain private and dictated text is never logged.
+### Performance
 
-Model directories are searched in this order:
+- Live drafts decode the recorder's in-memory 16 kHz samples. No snapshot file
+  is written or read per draft, and a pass is skipped while no new audio has
+  arrived.
+- The verified model is re-checked on disk at most every 30 seconds rather than
+  on every draft. The model manifest is decoded once.
+- Weights stay resident between recordings, and each pass gets its own decoder
+  state, so cancelling a draft cannot disturb the final transcription.
+- Device setup, cue playback, resampling, and disk writes run off the main
+  thread. The level meter is polled only while recording, so it never
+  re-renders the menu or Settings.
 
-1. `LOQUI_MODEL_PATH`, an explicit directory override (relative paths resolve
-   against the working directory). An invalid override fails without fallback.
-2. Bundled `Contents/Resources/models/parakeet-tdt-0.6b-v2-coreml`.
-3. `models/parakeet-tdt-0.6b-v2-coreml` under `LOQUI_DEVELOPMENT_ROOT`, the
-   checkout inferred from a SwiftPM executable, the working directory, and its
-   parent.
-4. `~/Library/Application Support/Loqui/models/parakeet-tdt-0.6b-v2-coreml`.
+## Speech model
 
-An incomplete preferred directory fails without silently selecting other weights.
-`LOQUI_MODEL_PATH` now names a directory, rather than a GGML file. Remove old
-Whisper-specific environment overrides when migrating an existing checkout.
+Loqui runs [Parakeet TDT 0.6B v2](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v2)
+through [FluidAudio](https://github.com/FluidInference/FluidAudio) 0.17.4, its
+only third-party dependency. Inference is offline: Loqui loads local models,
+disables SDK network access, and never logs dictated text.
 
-## Pinned model supply chain
-
-[`parakeet-model.json`](Loqui/Sources/Loqui/Resources/parakeet-model.json)
-pins the model repository, immutable revision, and exact size and SHA-256 for
-all 21 required Core ML files. [`dependencies.env`](dependencies.env) mirrors the
-reviewed model identity and SDK version; tests prevent those values from drifting.
-[`Package.resolved`](Loqui/Package.resolved) pins the FluidAudio source revision.
-
-The model installer verifies cached assets before avoiding the network. Downloads
-use the immutable revision, bounded retries, and a temporary directory. Every file
-must pass size and digest checks before installation. A corrupt existing cache is
-retained under an `.invalid.<uuid>` directory after a verified replacement is
-ready; failed downloads leave the prior cache untouched.
-
-Setup, bundle assembly, and bundle verification use the same verifier:
+[`parakeet-model.json`](Loqui/Sources/LoquiParakeet/Resources/parakeet-model.json)
+pins the model repository, an immutable revision, and the exact size and
+SHA-256 of every Core ML file. [`dependencies.env`](dependencies.env) mirrors
+the model identity and SDK version, and tests keep the two in sync. Setup,
+bundling, and verification all use the same checker:
 
 ```sh
 ./scripts/dependency-tool.sh verify-model ./models/parakeet-tdt-0.6b-v2-coreml
 ```
 
-Production setup and release reject alternate model manifests. Developer ID
-bundling also rejects manifest overrides. CI uses a small deterministic fixture
-to verify packaging, plus real model inference on Apple Silicon and the
-unsupported-hardware guard on Intel.
+Models are found in this order. An invalid match fails loudly instead of
+silently falling back to other weights.
 
-To update the dependency, review the SDK pin, the immutable model revision, every
-file size and digest, the resolver contract, and native inference checks together.
-Run the Swift, model-installer, lint, and bundle gates before publishing.
+1. `LOQUI_MODEL_PATH`, an explicit directory.
+2. `Contents/Resources/models/` inside the app bundle.
+3. `models/` in the development checkout (`LOQUI_DEVELOPMENT_ROOT`, the
+   checkout inferred from a SwiftPM build, or the working directory).
+4. `~/Library/Application Support/Loqui/models/`.
 
-The original [NVIDIA Parakeet TDT v2 model](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v2)
-is licensed under CC BY 4.0; the Core ML conversion is provided by FluidInference.
-FluidAudio is licensed under Apache 2.0.
+To update the backend, review the SDK pin, the model revision, every file
+digest, and the native inference check together.
 
-## Homebrew Tap
-
-Once the tap is published, install with:
+## Development
 
 ```sh
-brew tap benniekingwood/tap
-brew install --cask loqui
+swift test --package-path Loqui                     # every module's tests
+bash tests/dependency-tool-fixtures.sh              # model installer
+bash tests/signing-identity-tests.sh                # signing selection
+swiftlint lint --strict --config .swiftlint.yml
+swiftformat --lint --config .swiftformat Loqui/Sources Loqui/Tests
 ```
+
+Open `Loqui/Package.swift` in Xcode to edit and run tests. The app needs a real
+bundle for microphone and Accessibility access, so run it through `./bundle.sh`
+or `./scripts/deploy.sh` rather than `swift run`. See
+[docs/TESTING.md](docs/TESTING.md) for the real-model and microphone checks, and
+[docs/RELEASING.md](docs/RELEASING.md) for signing, notarization, and releases.
+
+## Licenses
+
+The Parakeet TDT v2 model is licensed under CC BY 4.0 by NVIDIA. The Core ML
+conversion is provided by FluidInference. FluidAudio is licensed under Apache
+2.0. Both notices ship inside the app bundle.

@@ -90,6 +90,7 @@ jobs:
             --scratch-path Loqui/.build/tests-x86_64 \
             -Xswiftc -warnings-as-errors
           bash tests/dependency-tool-fixtures.sh
+          bash tests/signing-identity-tests.sh
 
       - name: Assemble and verify extracted deterministic test bundle
         run: |
@@ -143,7 +144,7 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: models
-          key: loqui-parakeet-v2-${{ hashFiles('Loqui/Sources/Loqui/Resources/parakeet-model.json') }}
+          key: loqui-parakeet-v2-${{ hashFiles('Loqui/Sources/LoquiParakeet/Resources/parakeet-model.json') }}
 
       - name: Install and verify the pinned production model
         if: matrix.architecture == 'arm64'
