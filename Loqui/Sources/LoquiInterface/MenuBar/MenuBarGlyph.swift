@@ -7,6 +7,7 @@ import LoquiCore
 ///
 /// Geometry is authored on a 24-point grid (matching the brand canvas) and drawn
 /// at 18 points, the standard menu bar extra height.
+@MainActor
 package enum MenuBarGlyph {
     package static let pointSize: CGFloat = 18
 
