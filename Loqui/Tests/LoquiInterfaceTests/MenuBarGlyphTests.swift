@@ -3,6 +3,7 @@ import XCTest
 @testable import LoquiCore
 @testable import LoquiInterface
 
+@MainActor
 final class MenuBarGlyphTests: XCTestCase {
     func testGlyphsAreTemplateImagesAtMenuBarSize() {
         for image in [MenuBarGlyph.idle, MenuBarGlyph.recording] {
