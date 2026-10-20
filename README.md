@@ -153,15 +153,27 @@ digest, and the native inference check together.
 swift test --package-path Loqui                     # every module's tests
 bash tests/dependency-tool-fixtures.sh              # model installer
 bash tests/signing-identity-tests.sh                # signing selection
+bash tests/changelog-tests.sh                       # version and changelog checks
 swiftlint lint --strict --config .swiftlint.yml
 swiftformat --lint --config .swiftformat Loqui/Sources Loqui/Tests
 ```
+
+Every pull request raises the version and records the change in
+[CHANGELOG.md](CHANGELOG.md). Run `./scripts/changelog.sh bump patch` (or
+`minor` or `major`) and describe the change in the new section. CI rejects a
+pull request that skips this.
 
 Open `Loqui/Package.swift` in Xcode to edit and run tests. The app needs a real
 bundle for microphone and Accessibility access, so run it through `./bundle.sh`
 or `./scripts/deploy.sh` rather than `swift run`. See
 [docs/TESTING.md](docs/TESTING.md) for the real-model and microphone checks, and
 [docs/RELEASING.md](docs/RELEASING.md) for signing, notarization, and releases.
+
+## Acknowledgments
+
+Loqui began as a fork of [TalkText](https://github.com/joeblau/talktext) by
+Joe Blau. Thanks to that project for the foundation Loqui grew from. Loqui has
+since been rebuilt as an independent codebase.
 
 ## Licenses
 

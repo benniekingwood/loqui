@@ -65,6 +65,7 @@ jobs:
             exit 1
           fi
           ./scripts/read-version.sh
+          ./scripts/changelog.sh check
           swiftlint lint --strict --config .swiftlint.yml
           swiftformat --lint --config .swiftformat Loqui/Sources Loqui/Tests
 
@@ -91,6 +92,7 @@ jobs:
             -Xswiftc -warnings-as-errors
           bash tests/dependency-tool-fixtures.sh
           bash tests/signing-identity-tests.sh
+          bash tests/changelog-tests.sh
 
       - name: Assemble and verify extracted deterministic test bundle
         run: |
@@ -160,18 +162,43 @@ jobs:
             --scratch-path Loqui/.build/parakeet-${{ matrix.architecture }} \
             --filter ParakeetIntegrationTests -Xswiftc -warnings-as-errors
 
+  version-bump:
+    name: Version and changelog
+    if: ${{ github.event_name == 'pull_request' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Check out source
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+
+      - name: Require a raised VERSION with a changelog section
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: ./scripts/changelog.sh check-bump "origin/$BASE_REF"
+
   required:
     name: Required
     if: ${{ always() }}
     needs:
       - quality
       - backend-contract
+      - version-bump
     runs-on: ubuntu-24.04
     steps:
-      - name: Require every macOS gate
+      - name: Require every gate
         env:
           QUALITY_RESULT: ${{ needs.quality.result }}
           BACKEND_RESULT: ${{ needs.backend-contract.result }}
+          VERSION_RESULT: ${{ needs.version-bump.result }}
+          EVENT_NAME: ${{ github.event_name }}
         run: |
           test "$QUALITY_RESULT" = success
           test "$BACKEND_RESULT" = success
+          # The version check runs only on pull requests.
+          if [ "$EVENT_NAME" = pull_request ]; then
+            test "$VERSION_RESULT" = success
+          else
+            test "$VERSION_RESULT" = skipped
+          fi

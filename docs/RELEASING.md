@@ -28,6 +28,8 @@ final binary.
   three-component numeric semantic version such as `1.2.3`. Bundle,
   verification, and release entry points reject `LOQUI_VERSION_FILE` so an
   external fixture cannot select production metadata or archive names.
+- `CHANGELOG.md` records every version, newest first. Its newest section must
+  match `VERSION`; see [Versions and the changelog](#versions-and-the-changelog).
 - Public releases use that same value for both
   `CFBundleShortVersionString` and `CFBundleVersion`. This is the explicit build
   number policy: a new public build requires a version bump; mutable rebuilds
@@ -45,6 +47,35 @@ final binary.
 - `Loqui/Loqui.entitlements` is the reviewed, canonical entitlement set.
   The final signing command consumes it, and bundle verification compares the
   entitlements embedded in the code signature with that file.
+
+## Versions and the changelog
+
+Every pull request raises `VERSION` and adds a `CHANGELOG.md` section that
+describes the change. Pick the bump by its effect on someone using Loqui:
+
+- **major** (`2.0.0`): breaks existing setups, such as dropping a macOS version,
+  resetting settings, or removing a feature.
+- **minor** (`1.1.0`): adds a feature or a setting.
+- **patch** (`1.0.1`): fixes a bug, or changes only docs, tests, CI, or
+  internals.
+
+`scripts/changelog.sh` does the bookkeeping:
+
+```sh
+./scripts/changelog.sh bump minor   # raise VERSION, open a dated section
+$EDITOR CHANGELOG.md                # describe the change under Added/Changed/Fixed/Removed
+./scripts/changelog.sh check        # newest section matches VERSION and is filled in
+```
+
+Section headings use the form `## [1.1.0] - 2026-10-20`. The `Version and
+changelog` CI job runs `changelog.sh check-bump` against the pull request's
+base branch and fails unless `VERSION` went up and its section lists at least
+one change. When two open pull requests claim the same version, the one merged
+second must bump again after rebasing.
+
+A version bump does not publish anything. Pushing the tag `v<VERSION>` starts
+the release workflow, which uses that version's changelog section as the
+GitHub release notes.
 
 ## Signing modes
 
@@ -116,6 +147,7 @@ The check pins macOS to `macos-15-intel` and `macos-15`, Xcode to 16.4,
 third-party lint tool versions and archive digests, and every GitHub Action to
 a full commit SHA. SwiftPM, model, and tool caches use explicit, versioned keys. The gate covers:
 
+- a raised `VERSION` with a matching `CHANGELOG.md` section on pull requests
 - debug and release Universal 2 compilation with warnings as errors
 - all Swift and dependency fixture tests
 - native Parakeet model loading, final transcription, and live preview
