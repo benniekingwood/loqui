@@ -153,9 +153,15 @@ digest, and the native inference check together.
 swift test --package-path Loqui                     # every module's tests
 bash tests/dependency-tool-fixtures.sh              # model installer
 bash tests/signing-identity-tests.sh                # signing selection
+bash tests/changelog-tests.sh                       # version and changelog checks
 swiftlint lint --strict --config .swiftlint.yml
 swiftformat --lint --config .swiftformat Loqui/Sources Loqui/Tests
 ```
+
+Every pull request raises the version and records the change in
+[CHANGELOG.md](CHANGELOG.md). Run `./scripts/changelog.sh bump patch` (or
+`minor` or `major`) and describe the change in the new section. CI rejects a
+pull request that skips this.
 
 Open `Loqui/Package.swift` in Xcode to edit and run tests. The app needs a real
 bundle for microphone and Accessibility access, so run it through `./bundle.sh`

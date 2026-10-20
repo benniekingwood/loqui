@@ -123,6 +123,7 @@ jobs:
             "This release is a notarized Universal 2 build for Apple Silicon and Intel Macs running macOS $LOQUI_MINIMUM_SYSTEM_VERSION or newer." \
             "Pinned Parakeet model: $MODEL_REPOSITORY@$MODEL_REVISION; file digests are in the reviewed model manifest." \
             "Built-in transcription backend: FluidAudio $BACKEND_VERSION.")"
+          release_notes="$(printf '%s\n\n%s' "$(./scripts/changelog.sh notes "$version")" "$release_preamble")"
           ./release.sh verify-source
           gh release create "$GITHUB_REF_NAME" \
             "dist/$zip_name" \
@@ -130,8 +131,7 @@ jobs:
             --draft \
             --verify-tag \
             --title "$LOQUI_BUNDLE_NAME $version" \
-            --generate-notes \
-            --notes "$release_preamble"
+            --notes "$release_notes"
 
       - name: Download and verify the exact draft asset
         env:

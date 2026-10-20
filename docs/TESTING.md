@@ -98,9 +98,11 @@ swift test --package-path Loqui --filter LoquiDeliveryTests
 swift test --package-path Loqui --filter LoquiArchitectureTests
 ```
 
-Before merging, also run the same format and lint gates as CI:
+Before merging, also run the same format, lint, and changelog gates as CI:
 
 ```sh
+./scripts/changelog.sh check
+bash tests/changelog-tests.sh
 swiftlint lint --strict --config .swiftlint.yml
 swiftformat --lint --config .swiftformat Loqui/Sources Loqui/Tests
 ```
