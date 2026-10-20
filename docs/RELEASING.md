@@ -38,7 +38,7 @@ final binary.
   rechecked after archive verification and immediately before each publication
   transition. The archive is named
   `<CFBundleName>-<VERSION>.zip`.
-- `Loqui/Package.resolved` and `Loqui/Sources/Loqui/Resources/parakeet-model.json`
+- `Loqui/Package.resolved` and `Loqui/Sources/LoquiParakeet/Resources/parakeet-model.json`
   pin the built-in SDK and model assets and are included in immutable release
   source verification. The bundle includes both SwiftPM resource bundles and
   the reviewed model manifest.
@@ -53,7 +53,7 @@ bundle and lets CI run strict signature, resource, metadata, entitlement, and
 architecture checks without access to release credentials. It is not a
 distributable or Gatekeeper-trusted signature.
 
-The local `bun loqui` deployment path uses the same bundle assembly and
+The local `./scripts/deploy.sh` path uses the same bundle assembly and
 verification with `LOQUI_SIGNING_MODE=apple-development` when a suitable
 certificate is available. This keeps local TCC permission grants stable across
 rebuilds while remaining distinct from the Developer ID and notarization path

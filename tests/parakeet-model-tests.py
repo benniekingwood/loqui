@@ -2,6 +2,7 @@
 import hashlib
 import importlib.util
 import json
+import re
 import os
 from pathlib import Path
 import tempfile
@@ -147,8 +148,15 @@ class ReleaseMetadataTests(unittest.TestCase):
         (package / "Info.plist").write_bytes(plistlib.dumps(info))
         shutil.copy(ROOT / "Loqui/Package.swift", package)
         shutil.copy(ROOT / "scripts/export-canonical-metadata.sh", scripts)
-        (package / "Sources/Loqui/Resources").mkdir(parents=True)
-        (package / "Tests/LoquiTests").mkdir(parents=True)
+        # Give every target in the real manifest a directory, so the fixture
+        # package tracks the module layout without listing it here.
+        manifest = (ROOT / "Loqui/Package.swift").read_text()
+        for kind, name in re.findall(r'\.(target|testTarget|executableTarget)\(\s*name:\s*"([^"]+)"', manifest):
+            folder = "Tests" if kind == "testTarget" or name == "LoquiTestSupport" else "Sources"
+            (package / folder / name).mkdir(parents=True, exist_ok=True)
+            (package / folder / name / "Stub.swift").write_text("")
+        (package / "Sources/LoquiParakeet/Resources").mkdir(parents=True, exist_ok=True)
+        (package / "Sources/Loqui").mkdir(parents=True, exist_ok=True)
         (package / "Sources/Loqui/main.swift").write_text("print(42)\n")
         output = self.root / "metadata.env"
         result = subprocess.run([str(scripts / "export-canonical-metadata.sh"), str(output)], capture_output=True, text=True)
@@ -166,7 +174,7 @@ class ReleaseMetadataTests(unittest.TestCase):
 
     def test_immutable_release_source_includes_model_manifest_and_package_lock(self):
         files = ["release.sh", "scripts/read-version.sh", "VERSION", "dependencies.env", "Loqui/Info.plist",
-                 "Loqui/Loqui.entitlements", "Loqui/Package.resolved", "Loqui/Sources/Loqui/Resources/parakeet-model.json"]
+                 "Loqui/Loqui.entitlements", "Loqui/Package.resolved", "Loqui/Sources/LoquiParakeet/Resources/parakeet-model.json"]
         for name in files:
             destination = self.root / name
             destination.parent.mkdir(parents=True, exist_ok=True)
@@ -182,7 +190,7 @@ class ReleaseMetadataTests(unittest.TestCase):
         environment = dict(os.environ, LOQUI_RELEASE_COMMIT=commit, LOQUI_RELEASE_TAG="v" + version)
         result = subprocess.run([str(self.root / "release.sh"), "verify-source"], env=environment, capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
-        manifest = self.root / "Loqui/Sources/Loqui/Resources/parakeet-model.json"
+        manifest = self.root / "Loqui/Sources/LoquiParakeet/Resources/parakeet-model.json"
         manifest.write_text(manifest.read_text() + "\n")
         result = subprocess.run([str(self.root / "release.sh"), "verify-source"], env=environment, capture_output=True, text=True)
         self.assertNotEqual(result.returncode, 0)

@@ -1,32 +1,41 @@
 # Testing Loqui
 
-Run the complete engine suite from the repository root:
+Run every module's tests from the repository root:
 
 ```sh
 swift test --package-path Loqui -Xswiftc -warnings-as-errors
 ```
 
+Each module has its own test target (`LoquiCoreTests`, `LoquiAudioTests`,
+`LoquiParakeetTests`, `LoquiDeliveryTests`, `LoquiShortcutsTests`,
+`LoquiInterfaceTests`, and `LoquiAppTests`). Engine fakes shared between them
+live in the `LoquiTestSupport` target. `LoquiArchitectureTests` reads the
+sources themselves and fails when a module imports past its layer, when a
+package dependency other than FluidAudio appears, when anything but
+`LoquiParakeet` imports FluidAudio, when a log interpolation omits its privacy
+level, or when any tracked file refers back to the project Loqui started from.
+
 The safety-critical coverage expectation is behavioral rather than a single
 line-percentage target. A change must keep deterministic tests for:
 
-- concurrent stdout/stderr draining, launch errors, exit status, signals,
-  timeout, and task cancellation in the process runner;
 - dependency preflight before recording, output cleanup, and the distinction
   between successful no-speech output and every transcription failure;
 - permission/start/stop/recorder callback races, verified input readiness,
   cancellation while audio is still opening, maximum duration, explicit state
   transitions, and failure presentation;
 - resampling across input-rate changes, discarded warm-up audio, complete
-  trailing samples on stop, input metering, and final inference proceeding while
-  cancelled preview work cleans up;
+  trailing samples on stop, input metering, in-memory draft samples, skipped
+  passes while no new audio arrives, and final inference proceeding while
+  cancelled preview work winds down;
 - unique session recordings plus cleanup after success, failure, cancellation,
   startup stale-file pruning, and application termination;
 - captured-target identity, PID reuse/relaunch, closed windows, target switches,
   activation exhaustion, event failure, and never posting to an unverified app;
 - serialized clipboard transactions, checked writes, cancellation handoff,
   restoration, and manual-copy fallback policy without real keystrokes; and
-- a static privacy regression check that rejects raw transcript, subprocess
-  body, or clipboard-content logging.
+- a static privacy regression check that rejects raw transcript or
+  clipboard-content logging and requires every logged value to state its
+  privacy level.
 
 The ordinary Swift suite uses injected recognizers and requires no model download.
 To check the actual system default microphone after granting microphone access,
@@ -40,12 +49,12 @@ This opens the real input and requires incoming warm-up buffers. It discards the
 audio and verifies that the temporary WAV contains no recorded frames. Regression
 tests also cover an 18-channel CONNECT 6 format through mono WAV capture.
 
-The real-model test checks draft text from snapshots of an open recording within
-the first three seconds of input and final inference during preview cancellation.
+The real-model test checks draft text decoded from the in-memory samples of an
+open capture within the first three seconds of input, and final inference.
 It uses fixture audio, not microphone access. AirPods profile negotiation and
 audible cue playback still need a hardware check: select the AirPods under Input,
-hold Right Option until the ready chime, speak, check the panel's level meter and
-draft, then release. Repeat immediately and check that input recovers after an
+hold the dictation key until the ready chime, speak, check the recording
+indicator's level bars and the draft, then release. Repeat immediately and check that input recovers after an
 AirPods reconnect.
 
 Run the model installer, cache, and release-source fixtures with:
@@ -83,10 +92,10 @@ Loqui rejects x86_64 inference before loading any model.
 Useful focused commands include:
 
 ```sh
-swift test --package-path Loqui --filter ParakeetTranscriberTests
-swift test --package-path Loqui --filter TranscriptionEngineStateTests
-swift test --package-path Loqui --filter TextDeliveryTests
-swift test --package-path Loqui --filter PrivacyLoggingTests
+swift test --package-path Loqui --filter LoquiCoreTests
+swift test --package-path Loqui --filter LoquiParakeetTests
+swift test --package-path Loqui --filter LoquiDeliveryTests
+swift test --package-path Loqui --filter LoquiArchitectureTests
 ```
 
 Before merging, also run the same format and lint gates as CI:

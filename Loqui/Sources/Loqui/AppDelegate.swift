@@ -1,5 +1,9 @@
 import AppKit
 import Combine
+import LoquiAudio
+import LoquiCore
+import LoquiInterface
+import LoquiShortcuts
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -17,22 +21,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     )
 
     override convenience init() {
-        let audioInputSelection = AudioInputSelection()
-        self.init(
-            transcriptionEngine: TranscriptionEngine(inputSelection: audioInputSelection),
-            hotKeyController: HotKeyController(),
-            audioInputSelection: audioInputSelection
-        )
+        self.init(environment: .live())
     }
 
-    init(
-        transcriptionEngine: TranscriptionEngine,
-        hotKeyController: HotKeyController,
-        audioInputSelection: AudioInputSelection = AudioInputSelection()
-    ) {
-        self.transcriptionEngine = transcriptionEngine
-        self.hotKeyController = hotKeyController
-        self.audioInputSelection = audioInputSelection
+    init(environment: AppEnvironment) {
+        transcriptionEngine = environment.transcriptionEngine
+        hotKeyController = environment.hotKeyController
+        audioInputSelection = environment.audioInputSelection
         super.init()
     }
 

@@ -1,7 +1,0 @@
-{
-  "name": "loqui-swift-package",
-  "private": true,
-  "scripts": {
-    "loqui": "bun run ../scripts/loqui.ts"
-  }
-}

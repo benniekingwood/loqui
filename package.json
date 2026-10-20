@@ -1,7 +1,0 @@
-{
-  "name": "loqui",
-  "private": true,
-  "scripts": {
-    "loqui": "bun run scripts/loqui.ts"
-  }
-}

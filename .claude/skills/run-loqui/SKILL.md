@@ -15,7 +15,9 @@ the repo root. macOS on Apple Silicon only. Verified on macOS 26 with Swift 6.3.
   strongly recommended, see Gotchas). The driver finds it on its own.
 - About 1.2 GB of disk for the model under `models/`.
 
-`bun` is NOT required. The README's `bun loqui` path is replaced by the driver.
+To install into `/Applications` instead of running from the checkout, use
+`./scripts/deploy.sh`. It shares the driver's signing lookup
+(`scripts/signing-identity.sh`).
 
 ## Build
 
@@ -70,13 +72,13 @@ this sequence: `Recording started with verified input`, `Recording finished;
 Runs the opt-in `ParakeetIntegrationTests` against `tests/fixtures/jfk.wav`
 with the real model. It covers model load, final transcription, and the
 `CapturedAudioSink` live-draft snapshot path. Use it for any change under
-`Loqui/Sources/Loqui/` that touches audio or transcription. It takes about 40
+`Loqui/Sources/LoquiAudio/` or `Loqui/Sources/LoquiParakeet/` that touches audio or transcription. It takes about 40
 seconds the first time and under 1 second after that.
 
 ## Test
 
 ```bash
-.claude/skills/run-loqui/driver.sh test   # 199 tests, 3 skipped by design
+.claude/skills/run-loqui/driver.sh test   # every module's tests; 3 real-hardware tests skip by design
 ```
 
 ## Run (human path)
@@ -114,17 +116,17 @@ Accessibility access.
 - **`transcribe` prints an E5RT error.** The line `E5RT encountered an STL
   exception ... zero shape error` is Core ML noise. The test still passes.
 - **Quit uses `NSRunningApplication.terminate` through JXA**, the same as
-  `scripts/macos-app-lifecycle.ts`. That avoids the Automation consent
-  prompt that `osascript 'quit app'` can trigger.
+  `scripts/deploy.sh`. That avoids the Automation consent prompt that
+  `osascript 'quit app'` can trigger.
 
 ## Troubleshooting
 
 - **`bundle.sh` fails with `mutation of captured var 'suppliedBuffer' in
-  concurrently-executing code`.** Swift 6.3 is stricter than upstream's
-  Xcode 16.4 pin. Fixed in `CapturedAudioSink.swift` by PR #1.
+  concurrently-executing code`.** Swift 6.3 is stricter than CI's Xcode 16.4
+  pin. Fixed in `CapturedAudioSink.swift` by PR #1.
 - **`bundle.sh` fails with `xattr: [Errno 13] Permission denied ...
   FluidAudio_FluidAudio.bundle/...`.** SwiftPM emitted read-only resources.
   Fixed in `bundle.sh` by PR #1, which runs `chmod -R u+w` on copied bundles.
 - **`launch` prints `model: NOT ready`.** Run `driver.sh logs`. A
-  `Dependency preflight failed; category: ...` line names the cause.
+  `Speech model preflight failed; category: ...` line names the cause.
   Otherwise the model is still compiling, so raise `LOQUI_MODEL_WAIT`.

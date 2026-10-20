@@ -6,7 +6,7 @@ from pathlib import Path
 import sys
 
 root = Path(sys.argv[1])
-source = Path(__file__).resolve().parent.parent / "Loqui/Sources/Loqui/Resources/parakeet-model.json"
+source = Path(__file__).resolve().parent.parent / "Loqui/Sources/LoquiParakeet/Resources/parakeet-model.json"
 manifest = json.loads(source.read_text())
 directory = root / manifest["directory"]
 for item in manifest["files"]:
