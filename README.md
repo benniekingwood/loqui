@@ -169,6 +169,12 @@ or `./scripts/deploy.sh` rather than `swift run`. See
 [docs/TESTING.md](docs/TESTING.md) for the real-model and microphone checks, and
 [docs/RELEASING.md](docs/RELEASING.md) for signing, notarization, and releases.
 
+## Acknowledgments
+
+Loqui began as a fork of [TalkText](https://github.com/joeblau/talktext) by
+Joe Blau. Thanks to that project for the foundation Loqui grew from. Loqui has
+since been rebuilt as an independent codebase.
+
 ## Licenses
 
 The Parakeet TDT v2 model is licensed under CC BY 4.0 by NVIDIA. The Core ML
