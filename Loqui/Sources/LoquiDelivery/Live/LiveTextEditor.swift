@@ -82,6 +82,9 @@ package final class SystemLiveTextEditor: LiveTextEditing {
         let element: any LiveTextElement
         let replacementLocation: Int
         let originalText: String
+        /// The whole field before dictation touched it. Seeing it again means
+        /// the app discarded the draft rather than the user editing around it.
+        let originalValue: String
         var draftUTF16Length: Int
         var expectedValue: String
         /// False while only the cursor has been captured. Until a draft lands,
@@ -99,16 +102,23 @@ package final class SystemLiveTextEditor: LiveTextEditing {
 
     private var session: Session?
     private var keystrokeSession: KeystrokeSession?
+    /// An app that reports Accessibility writes as successful but never shows
+    /// them, as some web-based editors do. Drafts stop for the rest of the
+    /// dictation and the final text is delivered normally.
+    private var discardingTarget: PasteTarget?
     private var pendingOperation: Task<Void, Never>?
     private let focusedElement: @MainActor (PasteTarget) -> (any LiveTextElement)?
     private let keystrokeTyper: (any LiveKeystrokeTyping)?
+    private let writeConfirmationTimeout: Duration
 
     package init(
         focusedElement: @escaping @MainActor (PasteTarget) -> (any LiveTextElement)? = SystemLiveTextElement.focused,
-        keystrokeTyper: (any LiveKeystrokeTyping)? = SystemLiveKeystrokeTyper()
+        keystrokeTyper: (any LiveKeystrokeTyping)? = SystemLiveKeystrokeTyper(),
+        writeConfirmationTimeout: Duration = .milliseconds(300)
     ) {
         self.focusedElement = focusedElement
         self.keystrokeTyper = keystrokeTyper
+        self.writeConfirmationTimeout = writeConfirmationTimeout
     }
 
     package func update(_ text: String, in target: PasteTarget) async -> LiveTextUpdateOutcome {
@@ -124,7 +134,16 @@ package final class SystemLiveTextEditor: LiveTextEditing {
             }
             return .updated
         }
+        if discardingTarget == target {
+            return .unavailable
+        }
         if var session {
+            if draftWasDiscarded(in: session) {
+                liveTextLogger.debug("Field discarded the live draft; the final text will be delivered normally")
+                self.session = nil
+                discardingTarget = target
+                return .unavailable
+            }
             guard session.target == target, session.element.isFocused else {
                 liveTextLogger.debug("Live draft skipped; focus left the dictation field")
                 return .unavailable
@@ -133,6 +152,7 @@ package final class SystemLiveTextEditor: LiveTextEditing {
                 liveTextLogger.debug("Live draft skipped; field changed outside dictation")
                 return .unavailable
             }
+            let previousValue = session.expectedValue
             guard await session.element.replace(replacementRange(in: session), with: text) else {
                 guard !session.hasDraft else {
                     liveTextLogger.debug("Live draft replacement was rejected by the field")
@@ -141,6 +161,13 @@ package final class SystemLiveTextEditor: LiveTextEditing {
                 liveTextLogger.debug("Focused field rejected edits; using keystroke drafts")
                 self.session = nil
                 return await beginKeystrokeDraft(text, in: target)
+            }
+            if !session.hasDraft,
+               await confirmWrite(to: session.element, expected: updatedValue, previous: previousValue) == .ignored {
+                liveTextLogger.debug("Field ignored the live draft; the final text will be delivered normally")
+                self.session = nil
+                discardingTarget = target
+                return .unavailable
             }
             _ = session.element.select(NSRange(location: session.replacementLocation + (text as NSString).length, length: 0))
             session.draftUTF16Length = (text as NSString).length
@@ -172,14 +199,19 @@ package final class SystemLiveTextEditor: LiveTextEditing {
         // startup. The first actual draft performs the guarded replacement.
         if text.isEmpty {
             session = Session(target: target, element: element, replacementLocation: replacementRange.location,
-                              originalText: originalText, draftUTF16Length: replacementRange.length,
-                              expectedValue: currentValue, hasDraft: false)
+                              originalText: originalText, originalValue: currentValue,
+                              draftUTF16Length: replacementRange.length, expectedValue: currentValue, hasDraft: false)
             return .updated
         }
         let updatedValue = currentNSString.replacingCharacters(in: replacementRange, with: text)
         guard await element.replace(replacementRange, with: text) else {
             liveTextLogger.debug("Focused field rejected edits; using keystroke drafts")
             return await beginKeystrokeDraft(text, in: target)
+        }
+        guard await confirmWrite(to: element, expected: updatedValue, previous: currentValue) != .ignored else {
+            liveTextLogger.debug("Field ignored the live draft; the final text will be delivered normally")
+            discardingTarget = target
+            return .unavailable
         }
         _ = element.select(NSRange(location: replacementRange.location + (text as NSString).length, length: 0))
 
@@ -188,6 +220,7 @@ package final class SystemLiveTextEditor: LiveTextEditing {
             element: element,
             replacementLocation: replacementRange.location,
             originalText: originalText,
+            originalValue: currentValue,
             draftUTF16Length: (text as NSString).length,
             expectedValue: updatedValue,
             hasDraft: true
@@ -201,6 +234,7 @@ package final class SystemLiveTextEditor: LiveTextEditing {
 
     private func finalizeDraft(_ text: String, in target: PasteTarget) async -> LiveTextFinalizationOutcome {
         guard !Task.isCancelled else { return .unavailable }
+        discardingTarget = nil
         if keystrokeSession != nil {
             guard await reviseKeystrokeDraft(to: text, in: target) else { return .unavailable }
             keystrokeSession = nil
@@ -209,12 +243,22 @@ package final class SystemLiveTextEditor: LiveTextEditing {
         guard let session else {
             return .noActiveDraft
         }
+        if draftWasDiscarded(in: session) {
+            self.session = nil
+            return .noActiveDraft
+        }
         guard session.target == target,
-              replacingDraft(in: session, with: text) != nil,
+              let updatedValue = replacingDraft(in: session, with: text),
               await session.element.replace(replacementRange(in: session), with: text) else {
             return .unavailable
         }
         self.session = nil
+        // Nothing of the dictation is in the field, so ordinary delivery can
+        // place the final text without duplicating a draft.
+        if await confirmWrite(to: session.element, expected: updatedValue, previous: session.expectedValue) == .ignored {
+            liveTextLogger.debug("Field ignored the final text; delivering it normally")
+            return .noActiveDraft
+        }
         _ = session.element.select(NSRange(location: session.replacementLocation + (text as NSString).length, length: 0))
         return .finalized
     }
@@ -225,6 +269,7 @@ package final class SystemLiveTextEditor: LiveTextEditing {
     }
 
     private func restoreOriginalText() async -> LiveTextCancellationOutcome {
+        discardingTarget = nil
         if let keystrokeSession {
             self.keystrokeSession = nil
             guard let keystrokeTyper,
@@ -237,6 +282,9 @@ package final class SystemLiveTextEditor: LiveTextEditing {
             return .noActiveDraft
         }
         self.session = nil
+        if draftWasDiscarded(in: session) {
+            return .noActiveDraft
+        }
         guard replacingDraft(in: session, with: session.originalText) != nil,
               await session.element.replace(replacementRange(in: session), with: session.originalText) else {
             return .unavailable
@@ -291,6 +339,36 @@ package final class SystemLiveTextEditor: LiveTextEditing {
                 }
             } ? " " : character
         })
+    }
+
+    private enum WriteConfirmation: Equatable {
+        case applied
+        /// The field still holds exactly what it held before the write.
+        case ignored
+        /// The field changed, but not to the expected text. It may normalize
+        /// what it stores, so this is treated as applied.
+        case diverged
+    }
+
+    /// Some editors apply Accessibility writes a moment later, so the field is
+    /// polled briefly before a write is judged.
+    private func confirmWrite(to element: any LiveTextElement, expected: String, previous: String) async -> WriteConfirmation {
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: writeConfirmationTimeout)
+        while true {
+            let current = element.text
+            if current == expected { return .applied }
+            if clock.now >= deadline || Task.isCancelled {
+                return current == previous && expected != previous ? .ignored : .diverged
+            }
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+    }
+
+    private func draftWasDiscarded(in session: Session) -> Bool {
+        session.hasDraft
+            && session.expectedValue != session.originalValue
+            && session.element.text == session.originalValue
     }
 
     private func replacingDraft(in session: Session, with replacement: String) -> String? {

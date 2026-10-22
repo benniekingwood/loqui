@@ -357,6 +357,67 @@ final class LiveTextEditorTests: XCTestCase {
         XCTAssertEqual(element.text, "")
     }
 
+    func testFieldThatIgnoresWritesStopsDraftsAndHandsTheFinalTextToDelivery() async {
+        let element = LiveTextElementFake(text: "dsfsd", selection: NSRange(location: 5, length: 0))
+        element.ignoresWrites = true
+        let typer = LiveKeystrokeTyperFake()
+        let editor = SystemLiveTextEditor(focusedElement: { _ in element }, keystrokeTyper: typer,
+                                          writeConfirmationTimeout: .milliseconds(5))
+        let target = makeTarget()
+
+        let primed = await editor.update("", in: target)
+        let first = await editor.update("Yeah,", in: target)
+        let later = await editor.update("Yeah, that", in: target)
+        let final = await editor.finalize("Yeah, that sounds good.", in: target)
+
+        XCTAssertEqual([primed, first, later], [.updated, .unavailable, .unavailable])
+        XCTAssertEqual(final, .noActiveDraft, "Ordinary delivery must place the final text")
+        XCTAssertEqual(element.selectedTextWrites, 1, "Drafts stop after the field ignores the first one")
+        XCTAssertTrue(typer.operations.isEmpty)
+        XCTAssertEqual(element.text, "dsfsd")
+    }
+
+    func testFieldThatIgnoresTheOnlyFinalWriteHandsItToDelivery() async {
+        let element = LiveTextElementFake(text: "", selection: NSRange(location: 0, length: 0))
+        element.ignoresWrites = true
+        let editor = SystemLiveTextEditor(focusedElement: { _ in element }, keystrokeTyper: LiveKeystrokeTyperFake(),
+                                          writeConfirmationTimeout: .milliseconds(5))
+
+        _ = await editor.update("", in: makeTarget())
+        let final = await editor.finalize("Short.", in: makeTarget())
+
+        XCTAssertEqual(final, .noActiveDraft)
+    }
+
+    func testDraftThatTheFieldRevertsIsNotTreatedAsAUserEdit() async {
+        let element = LiveTextElementFake(text: "dsfsd", selection: NSRange(location: 5, length: 0))
+        let editor = SystemLiveTextEditor(focusedElement: { _ in element }, keystrokeTyper: LiveKeystrokeTyperFake())
+        let target = makeTarget()
+        let draft = await editor.update("Yeah,", in: target)
+        element.text = "dsfsd"
+
+        let revision = await editor.update("Yeah, that", in: target)
+        let final = await editor.finalize("Yeah, that sounds good.", in: target)
+
+        XCTAssertEqual([draft, revision], [.updated, .unavailable])
+        XCTAssertEqual(final, .noActiveDraft)
+        XCTAssertEqual(element.text, "dsfsd")
+    }
+
+    func testCancellingAfterTheFieldRevertedTheDraftLeavesItAlone() async {
+        let element = LiveTextElementFake(text: "kept", selection: NSRange(location: 4, length: 0))
+        let editor = SystemLiveTextEditor(focusedElement: { _ in element }, keystrokeTyper: LiveKeystrokeTyperFake())
+        _ = await editor.update(" draft", in: makeTarget())
+        element.text = "kept"
+        let writes = element.selectedTextWrites
+
+        let outcome = await editor.cancel()
+
+        XCTAssertEqual(outcome, .noActiveDraft)
+        XCTAssertEqual(element.selectedTextWrites, writes)
+        XCTAssertEqual(element.text, "kept")
+    }
+
     private func makeTarget(pid: pid_t = 42) -> PasteTarget {
         PasteTarget(processIdentifier: pid, bundleIdentifier: "test.editor", launchDate: Date(timeIntervalSince1970: 0), bundleURL: nil)!
     }
@@ -382,6 +443,9 @@ private final class LiveTextElementFake: LiveTextElement {
     var typingDelay: Duration = .zero
     private(set) var typingStarted = false
     var rejectedWrites = 0
+    /// Reports writes as successful without changing the text, as some
+    /// web-based editors do.
+    var ignoresWrites = false
     private(set) var selectedTextWrites = 0
     private(set) var valueWrites = 0
 
@@ -393,6 +457,7 @@ private final class LiveTextElementFake: LiveTextElement {
     func setSelectedText(_ replacement: String) -> Bool {
         selectedTextWrites += 1
         guard canReplaceSelectedText, acceptsWrite(), let text, let selection else { return false }
+        if ignoresWrites { return true }
         self.text = (text as NSString).replacingCharacters(in: selection, with: replacement)
         return true
     }

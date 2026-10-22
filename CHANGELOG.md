@@ -8,6 +8,22 @@ break existing setups or drop support, a **minor** bump for new features, and a
 [docs/RELEASING.md](docs/RELEASING.md#versions-and-the-changelog) for the
 workflow.
 
+## [1.0.1] - 2026-10-22
+
+### Fixed
+
+- Dictation into Spark and other web-based editors that ignore Accessibility
+  edits. Loqui now checks that its text actually appeared. Live drafts stop
+  for that dictation, and the final text is pasted instead.
+- A paste the app ignored is retried once as a typed ⌘V. If it still doesn't
+  land, the transcript stays on the clipboard and the card says so, instead of
+  the clipboard being restored over it.
+
+### Changed
+
+- Loqui's log records how each transcript was delivered (inserted, pasted, or
+  copied, and why), without the transcript text.
+
 ## [1.0.0] - 2026-10-19
 
 The first release of Loqui as its own project.

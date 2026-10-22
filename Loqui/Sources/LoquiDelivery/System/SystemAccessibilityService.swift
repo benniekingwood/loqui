@@ -102,6 +102,28 @@ package final class SystemAccessibilityService: AccessibilityServing {
         FocusedInputKind.focused(in: target)
     }
 
+    package func focusedValue(in target: PasteTarget) -> String? {
+        let systemWideElement = AXUIElementCreateSystemWide()
+        AXUIElementSetMessagingTimeout(systemWideElement, 0.15)
+        var focusedElementValue: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(systemWideElement, kAXFocusedUIElementAttribute as CFString, &focusedElementValue) == .success,
+              let focusedElementValue, CFGetTypeID(focusedElementValue) == AXUIElementGetTypeID() else {
+            return nil
+        }
+        let focusedElement = unsafeDowncast(focusedElementValue, to: AXUIElement.self)
+        AXUIElementSetMessagingTimeout(focusedElement, 0.15)
+        var processIdentifier: pid_t = 0
+        guard AXUIElementGetPid(focusedElement, &processIdentifier) == .success,
+              processIdentifier == target.processIdentifier else {
+            return nil
+        }
+        var value: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(focusedElement, kAXValueAttribute as CFString, &value) == .success else {
+            return nil
+        }
+        return value as? String
+    }
+
     package func windowAvailability(of target: PasteTarget) -> TargetWindowAvailability {
         let applicationElement = AXUIElementCreateApplication(target.processIdentifier)
         var windowsValue: CFTypeRef?
