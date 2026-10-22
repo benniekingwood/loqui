@@ -77,6 +77,10 @@ final class DeliveryFakeAccessibility: AccessibilityServing {
     var insertionOutcome: AccessibilityInsertionOutcome
     var windowAvailabilityValue: TargetWindowAvailability
     var focusedInputKindValue: FocusedInputKind = .unknown
+    /// The focused field's readable text; nil models a field that cannot be read.
+    var fieldValue: String?
+    /// Whether a successful insertion actually changes `fieldValue`.
+    var insertionChangesField = true
     private(set) var insertedTargets: [PasteTarget] = []
 
     init(
@@ -93,7 +97,14 @@ final class DeliveryFakeAccessibility: AccessibilityServing {
 
     func insert(_ text: String, into target: PasteTarget) -> AccessibilityInsertionOutcome {
         insertedTargets.append(target)
+        if insertionOutcome == .inserted, insertionChangesField, let fieldValue {
+            self.fieldValue = fieldValue + text
+        }
         return insertionOutcome
+    }
+
+    func focusedValue(in target: PasteTarget) -> String? {
+        fieldValue
     }
 
     func windowAvailability(of target: PasteTarget) -> TargetWindowAvailability {
@@ -109,7 +120,12 @@ final class DeliveryFakeAccessibility: AccessibilityServing {
 final class DeliveryFakeEventPoster: PasteEventPosting {
     var permission = true
     var postResult = true
+    var frontmostPostResult = true
+    /// Runs when a paste shortcut is posted, to model whether the app pastes.
+    var onPost: (() -> Void)?
+    var onFrontmostPost: (() -> Void)?
     private(set) var postedTargets: [PasteTarget] = []
+    private(set) var frontmostPostCount = 0
 
     func ensurePermission(prompt: Bool) -> Bool {
         permission
@@ -117,7 +133,14 @@ final class DeliveryFakeEventPoster: PasteEventPosting {
 
     func postPasteShortcut(to target: PasteTarget) -> Bool {
         postedTargets.append(target)
+        if postResult { onPost?() }
         return postResult
+    }
+
+    func postPasteShortcutToFrontmostApp() -> Bool {
+        frontmostPostCount += 1
+        if frontmostPostResult { onFrontmostPost?() }
+        return frontmostPostResult
     }
 }
 

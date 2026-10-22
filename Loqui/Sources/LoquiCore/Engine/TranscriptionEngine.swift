@@ -599,7 +599,10 @@ package final class TranscriptionEngine: ObservableObject {
         guard currentSessionIdentifier == sessionIdentifier else {
             return
         }
-        logger.notice("Delivery completed; characters: \(text.count, privacy: .public)")
+        // The outcome names only the delivery path and reason, never transcript text.
+        logger.notice(
+            "Delivery completed; characters: \(text.count, privacy: .public); outcome: \(String(describing: deliveryOutcome), privacy: .public)"
+        )
         transition(to: Self.presentation(for: deliveryOutcome, shortcut: shortcut))
         if let unplaced = UnplacedTranscript(text: text, outcome: deliveryOutcome) {
             unplacedTranscripts.send(unplaced)

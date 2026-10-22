@@ -2,6 +2,9 @@ import ApplicationServices
 import AppKit
 import Foundation
 import LoquiCore
+import os
+
+private let deliveryLogger = Logger(subsystem: AppIdentity.bundleIdentifier, category: "delivery")
 
 @MainActor
 package final class TextDeliveryService: TextDelivering {
@@ -14,6 +17,8 @@ package final class TextDeliveryService: TextDelivering {
     private let activationAttempts: Int
     private let activationRetryDelay: TimeInterval
     private let restorationDelay: TimeInterval
+    private let insertionConfirmationAttempts: Int
+    private let insertionConfirmationDelay: TimeInterval
     private var clipboardTransactionActive = false
     private struct ClipboardWaiter {
         let identifier: UUID
@@ -32,7 +37,9 @@ package final class TextDeliveryService: TextDelivering {
         sleeper: any DeliverySleeping = SystemDeliverySleeper(),
         activationAttempts: Int = 7,
         activationRetryDelay: TimeInterval = 0.15,
-        restorationDelay: TimeInterval = 0.75
+        restorationDelay: TimeInterval = 0.75,
+        insertionConfirmationAttempts: Int = 10,
+        insertionConfirmationDelay: TimeInterval = 0.03
     ) {
         self.workspace = workspace
         self.accessibility = accessibility
@@ -43,6 +50,8 @@ package final class TextDeliveryService: TextDelivering {
         self.activationAttempts = max(1, activationAttempts)
         self.activationRetryDelay = max(0, activationRetryDelay)
         self.restorationDelay = max(0, restorationDelay)
+        self.insertionConfirmationAttempts = max(1, insertionConfirmationAttempts)
+        self.insertionConfirmationDelay = max(0, insertionConfirmationDelay)
     }
 
     package func captureCurrentTarget(excludingBundleIdentifier: String?) -> PasteTarget? {
@@ -106,11 +115,8 @@ package final class TextDeliveryService: TextDelivering {
         guard !Task.isCancelled else {
             return .cancelled(restoration: nil)
         }
-        if let target,
-           workspace.availability(of: target) == .available,
-           accessibility.ensurePermission(prompt: true),
-           accessibility.insert(text, into: target) == .inserted {
-            return .inserted
+        if let target, let outcome = await insertThroughAccessibility(text, into: target) {
+            return outcome
         }
         guard await acquireClipboardTransaction() else {
             return .cancelled(restoration: nil)
@@ -219,14 +225,92 @@ package final class TextDeliveryService: TextDelivering {
         case .available:
             break
         }
+        let valueBeforePaste = accessibility.focusedValue(in: target)
         guard eventPoster.postPasteShortcut(to: target) else {
             return .copiedForManualPaste(.eventPostFailed)
         }
+        return await confirmPaste(
+            into: target,
+            replacing: valueBeforePaste,
+            restoring: originalContents,
+            ifUnchangedSince: transientChangeCount
+        )
+    }
 
+    /// Returns nil when delivery should continue with a paste.
+    private func insertThroughAccessibility(_ text: String, into target: PasteTarget) async -> DeliveryOutcome? {
+        guard workspace.availability(of: target) == .available,
+              accessibility.ensurePermission(prompt: true) else {
+            return nil
+        }
+        let valueBeforeInsertion = accessibility.focusedValue(in: target)
+        guard accessibility.insert(text, into: target) == .inserted else {
+            return nil
+        }
+        switch await confirmChange(in: target, from: valueBeforeInsertion) {
+        case .changed, .unverifiable:
+            return .inserted
+        case .cancelled:
+            return .cancelled(restoration: nil)
+        case .unchanged:
+            // Some web-based editors accept the write and then ignore it.
+            deliveryLogger.debug("Accessibility insertion did not change the field; pasting instead")
+            return nil
+        }
+    }
+
+    /// Waits for the app to read the clipboard, then checks that the field
+    /// changed. An app that ignored ⌘V sent to its process gets one typed ⌘V.
+    private func confirmPaste(
+        into target: PasteTarget,
+        replacing valueBeforePaste: String?,
+        restoring originalContents: PasteboardSnapshot,
+        ifUnchangedSince transientChangeCount: Int
+    ) async -> DeliveryOutcome {
         guard await sleeper.sleep(for: restorationDelay) else {
             return .cancelled(restoration: pasteboard.restore(originalContents, ifUnchangedSince: transientChangeCount))
         }
+        if let valueBeforePaste, accessibility.focusedValue(in: target) == valueBeforePaste {
+            deliveryLogger.debug("Paste did not change the field; retrying as a typed shortcut")
+            if workspace.frontmostTarget() == target, eventPoster.postPasteShortcutToFrontmostApp() {
+                guard await sleeper.sleep(for: restorationDelay) else {
+                    return .cancelled(restoration: pasteboard.restore(originalContents, ifUnchangedSince: transientChangeCount))
+                }
+            }
+            if accessibility.focusedValue(in: target) == valueBeforePaste {
+                // Keep the transcript on the clipboard so the card's message is true.
+                deliveryLogger.debug("Paste did not land; leaving the transcript on the clipboard")
+                return .copiedForManualPaste(.eventPostFailed)
+            }
+        }
         return .pasted(restoration: pasteboard.restore(originalContents, ifUnchangedSince: transientChangeCount))
+    }
+
+    private enum FieldChange {
+        case changed
+        case unchanged
+        /// The field's text cannot be read, so the write is trusted.
+        case unverifiable
+        case cancelled
+    }
+
+    /// Editors may apply an Accessibility write a moment later, so the field
+    /// is polled briefly before the write is judged.
+    private func confirmChange(in target: PasteTarget, from previousValue: String?) async -> FieldChange {
+        guard let previousValue else {
+            return .unverifiable
+        }
+        for attempt in 0..<insertionConfirmationAttempts {
+            if attempt > 0 {
+                guard await sleeper.sleep(for: insertionConfirmationDelay) else {
+                    return .cancelled
+                }
+            }
+            if accessibility.focusedValue(in: target) != previousValue {
+                return .changed
+            }
+        }
+        return .unchanged
     }
 
     private func acquireClipboardTransaction() async -> Bool {

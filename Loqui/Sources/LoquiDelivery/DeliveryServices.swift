@@ -44,16 +44,27 @@ package protocol AccessibilityServing: AnyObject {
     func insert(_ text: String, into target: PasteTarget) -> AccessibilityInsertionOutcome
     func windowAvailability(of target: PasteTarget) -> TargetWindowAvailability
     func focusedInputKind(in target: PasteTarget) -> FocusedInputKind
+    /// The focused field's text when it belongs to the target and is readable.
+    /// Delivery compares it before and after a write to see whether text landed.
+    func focusedValue(in target: PasteTarget) -> String?
 }
 
 package extension AccessibilityServing {
     func focusedInputKind(in target: PasteTarget) -> FocusedInputKind { .unknown }
+    func focusedValue(in target: PasteTarget) -> String? { nil }
 }
 
 @MainActor
 package protocol PasteEventPosting: AnyObject {
     func ensurePermission(prompt: Bool) -> Bool
     func postPasteShortcut(to target: PasteTarget) -> Bool
+    /// Posts ⌘V as if typed on the keyboard, reaching whichever app is
+    /// frontmost. Some web-based apps ignore shortcuts sent to their process.
+    func postPasteShortcutToFrontmostApp() -> Bool
+}
+
+package extension PasteEventPosting {
+    func postPasteShortcutToFrontmostApp() -> Bool { false }
 }
 
 package struct PasteboardItemSnapshot: Equatable, Sendable {
