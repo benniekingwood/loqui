@@ -8,6 +8,22 @@ break existing setups or drop support, a **minor** bump for new features, and a
 [docs/RELEASING.md](docs/RELEASING.md#versions-and-the-changelog) for the
 workflow.
 
+## [1.2.0] - 2026-11-03
+
+### Added
+
+- Filler words such as "um", "uh", and "erm" are removed from drafts and the
+  final transcript. Words that only look like fillers ("umbrella", "uh-huh",
+  "ER") are kept. On by default; turn it off under Settings › Text.
+- Spoken formatting: say "new line", "new paragraph", "open quote", or "close
+  quote" to format the final transcript. Drafts never type line breaks. Off by
+  default; turn it on under Settings › Text.
+
+### Changed
+
+- A dictation that was nothing but filler words now reports that no speech was
+  detected instead of delivering empty text.
+
 ## [1.1.0] - 2026-11-02
 
 ### Changed

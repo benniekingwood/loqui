@@ -5,7 +5,7 @@ import LoquiCore
 import LoquiShortcuts
 
 /// Loqui's Settings window: the dictation shortcut, the microphone, sound
-/// cues, and what the speech model supports.
+/// cues, transcript cleanup, and what the speech model supports.
 package struct SettingsView: View {
     @EnvironmentObject package var engine: TranscriptionEngine
     @EnvironmentObject package var hotKeyController: HotKeyController
@@ -13,6 +13,8 @@ package struct SettingsView: View {
     @ObservedObject package var recorder: ShortcutRecorder
     @AppStorage(RecordingCuePreference.defaultsKey) private var playsSoundCues = true
     @AppStorage(RecordingOverlayPreference.defaultsKey) private var showsRecordingOverlay = true
+    @AppStorage(FillerWordPreference.defaultsKey) private var removesFillerWords = true
+    @AppStorage(SpokenFormattingPreference.defaultsKey) private var appliesSpokenFormatting = false
 
     package var body: some View {
         Form {
@@ -84,6 +86,17 @@ package struct SettingsView: View {
                 Toggle(isOn: $showsRecordingOverlay) {
                     Text("Recording indicator")
                     Text("Show a floating bar above the Dock while Loqui listens and transcribes.")
+                }
+            }
+
+            Section("Text") {
+                Toggle(isOn: $removesFillerWords) {
+                    Text("Remove filler words")
+                    Text("Leave out “um”, “uh”, and similar hesitations.")
+                }
+                Toggle(isOn: $appliesSpokenFormatting) {
+                    Text("Spoken formatting")
+                    Text("Say “new line”, “new paragraph”, “open quote”, or “close quote” to format the final text.")
                 }
             }
 

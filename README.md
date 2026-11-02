@@ -21,11 +21,14 @@ model on Apple Silicon.
   keystrokes instead.
 - **Recording indicator.** A small pill in Loqui's Spectrum colors floats above
   the Dock while Loqui listens, following your voice level.
+- **Cleaner text.** Filler words like "um" and "uh" are removed. Turn on
+  spoken formatting to say "new line", "new paragraph", "open quote", or
+  "close quote" and get the formatting instead of the words.
 - **Transcript card.** If nothing editable has focus, Loqui doesn't type into
   the void. It shows your words in a card with a Copy button.
 - **Settings.** Choose the dictation key (Right Option, Right Command, Right
-  Control, or Fn), toggle hands-free mode, pick the microphone, and turn sound
-  cues and the indicator on or off. Open Settings from the menu bar icon, with
+  Control, or Fn), toggle hands-free mode, pick the microphone, turn sound
+  cues and the indicator on or off, and choose how transcripts are cleaned up. Open Settings from the menu bar icon, with
   ⌘, or by clicking Loqui in the Dock.
 
 ## Requirements
@@ -179,6 +182,9 @@ your own dictation, and
 Loqui began as a fork of [TalkText](https://github.com/joeblau/talktext) by
 Joe Blau. Thanks to that project for the foundation Loqui grew from. Loqui has
 since been rebuilt as an independent codebase.
+
+The filler-word and spoken-formatting rules follow the behavior of
+[Hex](https://github.com/anomalyco/hex) (MIT), reimplemented in Swift.
 
 ## Licenses
 

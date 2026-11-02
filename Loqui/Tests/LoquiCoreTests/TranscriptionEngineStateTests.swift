@@ -322,6 +322,47 @@ final class TranscriptionEngineStateTests: XCTestCase {
         XCTAssertEqual(Set(store.removedURLs), Set(store.allocatedURLs))
     }
 
+    func testDraftsLoseFillersAndOnlyTheFinalTranscriptIsFormatted() async {
+        let transcriber = EngineSequencedTranscriberFake(
+            outcomes: [.success("Um, a live draft new line"), .success("Um, the final new line done")]
+        )
+        let delivery = EngineDeliveryFake()
+        delivery.liveUpdateResult = false
+        let engine = makeEngine(
+            transcriber: transcriber,
+            delivery: delivery,
+            livePreviewInterval: 0.01,
+            transcriptCleanup: TranscriptCleanup(removesFillerWords: true, appliesSpokenFormatting: true)
+        )
+
+        engine.toggleRecording()
+        await waitUntilWithDelay { delivery.liveUpdatedTexts == ["", "A live draft new line"] }
+        engine.toggleRecording()
+        await waitUntilWithDelay { engine.state == .idle }
+
+        XCTAssertEqual(delivery.finalizedTexts, ["The final\ndone"])
+    }
+
+    func testAFinalTranscriptOfOnlyFillersDeliversNothing() async {
+        let delivery = EngineDeliveryFake()
+        let engine = makeEngine(
+            transcriber: EngineTranscriberFake(outcome: .success("Um.")),
+            delivery: delivery,
+            transcriptCleanup: TranscriptCleanup(removesFillerWords: true, appliesSpokenFormatting: false)
+        )
+
+        engine.toggleRecording()
+        await waitUntil { engine.state == .recording }
+        engine.toggleRecording()
+        await waitUntil { engine.state == .idle }
+
+        XCTAssertTrue(delivery.finalizedTexts.isEmpty)
+        XCTAssertEqual(
+            engine.statusText,
+            TranscriptionEngine.presentation(for: .noSpeech, shortcut: .default, modelName: "speech").statusText
+        )
+    }
+
     func testRapidTogglesCannotStartAnotherSessionWhileDeliveryIsPending() async {
         let store = EngineFileStoreFake()
         let delivery = EngineDeliveryFake(outcome: nil)
@@ -439,7 +480,8 @@ final class TranscriptionEngineStateTests: XCTestCase {
         store: EngineFileStoreFake = EngineFileStoreFake(),
         transcriber: any SpeechTranscribing = EngineTranscriberFake(),
         delivery: EngineDeliveryFake = EngineDeliveryFake(),
-        livePreviewInterval: TimeInterval = 1.5
+        livePreviewInterval: TimeInterval = 1.5,
+        transcriptCleanup: TranscriptCleanup = .none
     ) -> TranscriptionEngine {
         TranscriptionEngine(
             permissionProvider: permission,
@@ -451,6 +493,7 @@ final class TranscriptionEngineStateTests: XCTestCase {
             transcriber: transcriber,
             textDelivery: delivery,
             livePreviewInterval: livePreviewInterval,
+            transcriptCleanup: { transcriptCleanup },
             performStartupCleanup: false
         )
     }
