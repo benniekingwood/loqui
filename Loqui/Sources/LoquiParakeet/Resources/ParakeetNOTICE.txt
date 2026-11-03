@@ -1,10 +1,13 @@
-Loqui uses NVIDIA Parakeet TDT 0.6B v2 for speech recognition.
-Original model: https://huggingface.co/nvidia/parakeet-tdt-0.6b-v2
-Model license: Creative Commons Attribution 4.0 International (CC BY 4.0)
-License terms: https://creativecommons.org/licenses/by/4.0/legalcode
+Licensed by NVIDIA Corporation under the NVIDIA Open Model License
+
+Loqui uses NVIDIA Parakeet Unified English 0.6B for speech recognition.
+Original model: https://huggingface.co/nvidia/parakeet-unified-en-0.6b
+Model license: NVIDIA Open Model License Agreement (Version Release Date: October 24, 2025)
+A copy of the agreement is included as NVIDIA-Open-Model-License.txt.
+License terms: https://www.nvidia.com/en-us/agreements/enterprise-software/nvidia-open-model-license/
 
 Core ML conversion by FluidInference:
-https://huggingface.co/FluidInference/parakeet-tdt-0.6b-v2-coreml
+https://huggingface.co/FluidInference/parakeet-unified-en-0.6b-coreml
 Loqui uses the pinned conversion revision recorded in parakeet-model.json.
 
 Inference SDK: FluidAudio 0.17.4, licensed under Apache License 2.0.

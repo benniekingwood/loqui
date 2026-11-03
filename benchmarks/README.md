@@ -7,8 +7,8 @@ does, and reports accuracy, latency, load time, and memory.
 
 | Model | What it is |
 |---|---|
-| `v2` | Parakeet TDT 0.6B v2, what Loqui ships today, read from `models/`. Run `./setup.sh` first. |
-| `unified` | Parakeet Unified English 0.6B, whole clip at once. Downloads about 600 MB on first use. |
+| `v2` | Parakeet TDT 0.6B v2, what Loqui shipped before 1.1.0. Read from `models/` if an older setup left it there, or downloaded (about 450 MB) on first use. |
+| `unified` | Parakeet Unified English 0.6B, whole clip at once, what Loqui ships today. Downloads about 600 MB on first use. |
 | `unified-stream` | The same model fed in 100 ms chunks like live audio ([#13](https://github.com/benniekingwood/loqui/issues/13)). Its encoder is a second download of about 580 MB. |
 
 The benchmark is a separate Swift package and isn't part of the app.

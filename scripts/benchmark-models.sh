@@ -30,7 +30,7 @@ BENCH="$(swift build -c release --package-path "$PACKAGE" --show-bin-path)/loqui
 RESULTS="$ROOT/benchmarks/results/$(date +%Y%m%d-%H%M%S)"
 mkdir -p "$RESULTS"
 
-# The v2 model is read from models/ in the checkout, so run from the root.
+# A leftover v2 model is read from models/ in the checkout, so run from the root.
 cd "$ROOT"
 for model in "${MODELS[@]}"; do
     # Downloads the model if needed and pays the one-time Core ML compile, so

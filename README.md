@@ -6,8 +6,8 @@
 
 Loqui is private, on-device dictation for macOS. Hold a key, speak, and your
 words appear at the cursor in whatever app you are using. Speech never leaves
-your Mac: transcription runs locally with NVIDIA's Parakeet TDT 0.6B v2 model on
-Apple Silicon.
+your Mac: transcription runs locally with NVIDIA's Parakeet Unified English 0.6B
+model on Apple Silicon.
 
 ## What it does
 
@@ -33,7 +33,7 @@ Apple Silicon.
 - macOS 14 or newer on Apple Silicon. Intel Macs and Rosetta get a clear
   unsupported-hardware message instead of a crash.
 - Microphone access, and Accessibility access so Loqui can type at the cursor.
-- About 470 MB for the speech model. Packaged apps include it.
+- About 615 MB for the speech model. Packaged apps include it.
 - Xcode or the Command Line Tools with Swift 6, and Python 3.9+ for model setup.
 
 ## Getting started
@@ -112,18 +112,21 @@ from `LoquiCore`. A new backend is a module that implements both. Point
   arrived.
 - The verified model is re-checked on disk at most every 30 seconds rather than
   on every draft. The model manifest is decoded once.
-- Weights stay resident between recordings, and each pass gets its own decoder
-  state, so cancelling a draft cannot disturb the final transcription.
+- Weights stay resident between recordings, and each pass decodes from a fresh
+  decoder state, so cancelling a draft cannot disturb the final transcription.
 - Device setup, cue playback, resampling, and disk writes run off the main
   thread. The level meter is polled only while recording, so it never
   re-renders the menu or Settings.
 
 ## Speech model
 
-Loqui runs [Parakeet TDT 0.6B v2](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v2)
+Loqui runs [Parakeet Unified English 0.6B](https://huggingface.co/nvidia/parakeet-unified-en-0.6b)
 through [FluidAudio](https://github.com/FluidInference/FluidAudio) 0.17.4, its
 only third-party dependency. Inference is offline: Loqui loads local models,
 disables SDK network access, and never logs dictated text.
+
+The model writes punctuation and capitals, and writes most numbers and amounts
+as digits ("port 3000", "$1,200").
 
 [`parakeet-model.json`](Loqui/Sources/LoquiParakeet/Resources/parakeet-model.json)
 pins the model repository, an immutable revision, and the exact size and
@@ -132,7 +135,7 @@ the model identity and SDK version, and tests keep the two in sync. Setup,
 bundling, and verification all use the same checker:
 
 ```sh
-./scripts/dependency-tool.sh verify-model ./models/parakeet-tdt-0.6b-v2-coreml
+./scripts/dependency-tool.sh verify-model ./models/parakeet-unified-en-0.6b-coreml
 ```
 
 Models are found in this order. An invalid match fails loudly instead of
@@ -179,6 +182,8 @@ since been rebuilt as an independent codebase.
 
 ## Licenses
 
-The Parakeet TDT v2 model is licensed under CC BY 4.0 by NVIDIA. The Core ML
-conversion is provided by FluidInference. FluidAudio is licensed under Apache
-2.0. Both notices ship inside the app bundle.
+The Parakeet Unified English model is licensed by NVIDIA Corporation under the
+[NVIDIA Open Model License](https://www.nvidia.com/en-us/agreements/enterprise-software/nvidia-open-model-license/).
+The Core ML conversion is provided by FluidInference. FluidAudio is licensed
+under Apache 2.0. The model notice, a copy of the NVIDIA agreement, and the
+FluidAudio license ship inside the app bundle.

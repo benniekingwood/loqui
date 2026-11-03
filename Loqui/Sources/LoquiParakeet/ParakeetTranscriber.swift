@@ -3,12 +3,13 @@ import FluidAudio
 import Foundation
 import LoquiCore
 
-/// Loqui's speech backend: Parakeet TDT 0.6B v2 running on device through
-/// FluidAudio. This module is the only code that imports FluidAudio, so a
-/// backend upgrade or replacement stays inside it.
+/// Loqui's speech backend: Parakeet Unified English 0.6B running on device
+/// through FluidAudio. This module is the only code that imports FluidAudio, so
+/// a backend upgrade or replacement stays inside it.
 ///
-/// All weights remain resident. Every pass, draft or final, gets its own
-/// decoder state so cancelling a draft cannot corrupt the final transcript.
+/// All weights remain resident. Every pass, draft or final, decodes each window
+/// from a fresh decoder state, so cancelling a draft cannot corrupt the final
+/// transcript.
 package actor ParakeetTranscriber: SpeechTranscribing, SpeechModelPreflighting {
     package static let displayName = "Parakeet"
     /// 16 kHz mono, the rate FluidAudio's Parakeet models consume directly.
@@ -155,9 +156,9 @@ package extension ParakeetRecognizing {
 }
 
 private actor FluidAudioParakeetRecognizer: ParakeetRecognizing {
-    private var models: AsrModels?
+    private var manager: UnifiedAsrManager?
     private var modelURL: URL?
-    private var loading: (url: URL, task: Task<AsrModels, any Error>)?
+    private var loading: (url: URL, task: Task<UnifiedAsrManager, any Error>)?
 
     func validateHardware() async throws {
         // Core ML prediction crashes under Rosetta for these assets. Keep the
@@ -170,22 +171,23 @@ private actor FluidAudioParakeetRecognizer: ParakeetRecognizing {
     func loadModels(at directory: URL) async throws {
         try await validateHardware()
         #if arch(arm64)
-            if models != nil, modelURL == directory { return }
+            if manager != nil, modelURL == directory { return }
             if let pending = loading {
                 let loaded = try await pending.task.value
-                models = loaded
+                manager = loaded
                 modelURL = pending.url
                 loading = nil
                 if pending.url == directory { return }
             }
             let task = Task.detached(priority: .userInitiated) {
-                let configuration = AsrModels.defaultConfiguration()
-                return try AsrModels.loadLocal(from: directory, version: .v2, configuration: configuration)
+                let manager = UnifiedAsrManager()
+                try await manager.loadModels(from: directory)
+                return manager
             }
             loading = (directory, task)
             do {
                 let loaded = try await task.value
-                models = loaded
+                manager = loaded
                 modelURL = directory
                 loading = nil
             } catch {
@@ -196,17 +198,14 @@ private actor FluidAudioParakeetRecognizer: ParakeetRecognizing {
     }
 
     func transcribe(audioURL: URL) async throws -> String {
-        guard let models else { throw ASRError.notInitialized }
-        let manager = AsrManager(models: models)
-        var decoder = TdtDecoderState.make(decoderLayers: models.version.decoderLayers)
-        return try await manager.transcribe(audioURL, decoderState: &decoder).text
+        guard let manager else { throw ASRError.notInitialized }
+        let samples = try AudioConverter().resampleAudioFile(audioURL)
+        return try await manager.transcribe(samples)
     }
 
     func transcribe(samples: [Float]) async throws -> String {
-        guard let models else { throw ASRError.notInitialized }
-        let manager = AsrManager(models: models)
-        var decoder = TdtDecoderState.make(decoderLayers: models.version.decoderLayers)
-        return try await manager.transcribe(samples, decoderState: &decoder).text
+        guard let manager else { throw ASRError.notInitialized }
+        return try await manager.transcribe(samples)
     }
 }
 

@@ -106,7 +106,7 @@ final class ParakeetTranscriberTests: XCTestCase {
     func testPreflightReportsAContentFreeSummary() async {
         let preflight = await transcriber(backend: ParakeetRecognizerFake()).preflightSpeechModel()
         guard case let .ready(readiness) = preflight else { return XCTFail("Expected a ready model") }
-        XCTAssertTrue(readiness.summary.hasPrefix("Parakeet TDT 0.6B v2; FluidAudio="))
+        XCTAssertTrue(readiness.summary.hasPrefix("Parakeet Unified English 0.6B; FluidAudio="))
         XCTAssertEqual(readiness.location, Self.fixtureLocation.model.url)
     }
 

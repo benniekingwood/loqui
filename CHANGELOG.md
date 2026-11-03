@@ -8,6 +8,25 @@ break existing setups or drop support, a **minor** bump for new features, and a
 [docs/RELEASING.md](docs/RELEASING.md#versions-and-the-changelog) for the
 workflow.
 
+## [1.1.0] - 2026-11-02
+
+### Changed
+
+- Loqui now transcribes with Parakeet Unified English 0.6B instead of Parakeet
+  TDT 0.6B v2. It writes punctuation and capitals and writes most numbers as
+  digits ("port 3000", "$1,200"), and it uses about a third less memory. On 20
+  dictation clips it was as accurate as v2, and its typical latency was within
+  about 5 ms. See
+  [#12](https://github.com/benniekingwood/loqui/issues/12) for the results.
+- The model download is now about 615 MB, up from about 470 MB. Run
+  `./setup.sh` again to install it. You can delete the old
+  `models/parakeet-tdt-0.6b-v2-coreml` directory.
+- The model is licensed under the NVIDIA Open Model License instead of CC BY
+  4.0. The app bundle now includes a copy of the agreement next to the model
+  notice.
+- The model benchmark downloads v2 itself when it can't find a copy in
+  `models/`.
+
 ## [1.0.2] - 2026-11-02
 
 ### Added

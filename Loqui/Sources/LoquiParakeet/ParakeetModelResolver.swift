@@ -4,11 +4,17 @@ import LoquiCore
 /// These weights and the SDK version are reviewed together. Setup and bundling
 /// verify every file against the same manifest before the app loads local assets.
 package enum ParakeetModelContract {
-    package static let directoryName = "parakeet-tdt-0.6b-v2-coreml"
+    package static let modelName = "Parakeet Unified English 0.6B"
+    package static let directoryName = "parakeet-unified-en-0.6b-coreml"
     package static let sdkVersion = "0.17.4"
+    /// The batch path's int8 encoder, decoder, and joint. Mel features are
+    /// computed in Swift, so the model ships no preprocessor.
     package static let requiredComponents = [
-        "Preprocessor.mlmodelc", "Encoder.mlmodelc", "Decoder.mlmodelc", "JointDecision.mlmodelc",
+        "parakeet_unified_encoder_int8.mlmodelc",
+        "parakeet_unified_decoder.mlmodelc",
+        "parakeet_unified_joint_decision_single_step.mlmodelc",
     ]
+    package static let vocabularyFile = "vocab.json"
 
     package static var manifestURL: URL {
         #if SWIFT_PACKAGE
@@ -52,7 +58,7 @@ package struct ParakeetModelLocation: Equatable, Sendable {
 
     package var readiness: SpeechModelReadiness {
         SpeechModelReadiness(
-            summary: "Parakeet TDT 0.6B v2; FluidAudio=\(ParakeetModelContract.sdkVersion); model source=\(model.source.rawValue)",
+            summary: "\(ParakeetModelContract.modelName); FluidAudio=\(ParakeetModelContract.sdkVersion); model source=\(model.source.rawValue)",
             location: model.url
         )
     }
@@ -115,7 +121,7 @@ package struct ParakeetModelResolver: ParakeetModelResolving {
                 return .failure(.invalidOverride(
                     variable: "LOQUI_MODEL_PATH",
                     path: url.path,
-                    requirement: "a complete Parakeet v2 model directory (\(reason))"
+                    requirement: "a complete \(ParakeetModelContract.modelName) model directory (\(reason))"
                 ))
             }
             return .ready(ParakeetModelLocation(model: ResolvedDependencyPath(url: url, source: .override)))

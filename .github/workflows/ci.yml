@@ -99,7 +99,7 @@ jobs:
           fixture_dir="$RUNNER_TEMP/loqui-model-fixture"
           python3 tests/create-parakeet-fixture.py "$fixture_dir"
           export LOQUI_MODEL_MANIFEST="$fixture_dir/manifest.json"
-          export LOQUI_MODEL_PATH="$fixture_dir/parakeet-tdt-0.6b-v2-coreml"
+          export LOQUI_MODEL_PATH="$fixture_dir/parakeet-unified-en-0.6b-coreml"
           LOQUI_SIGNING_MODE=adhoc ./bundle.sh
           archive="$RUNNER_TEMP/$LOQUI_BUNDLE_NAME-ci.zip"
           extracted="$RUNNER_TEMP/extracted"
@@ -146,7 +146,7 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: models
-          key: loqui-parakeet-v2-${{ hashFiles('Loqui/Sources/LoquiParakeet/Resources/parakeet-model.json') }}
+          key: loqui-parakeet-unified-${{ hashFiles('Loqui/Sources/LoquiParakeet/Resources/parakeet-model.json') }}
 
       - name: Install and verify the pinned production model
         if: matrix.architecture == 'arm64'

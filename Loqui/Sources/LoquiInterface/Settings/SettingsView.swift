@@ -89,7 +89,7 @@ package struct SettingsView: View {
 
             Section("Speech") {
                 LabeledContent("Language", value: "English")
-                LabeledContent("Model", value: "Parakeet TDT 0.6B v2, on this Mac")
+                LabeledContent("Model", value: "Parakeet Unified English 0.6B, on this Mac")
             }
         }
         .formStyle(.grouped)

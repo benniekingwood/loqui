@@ -3,10 +3,10 @@ import FluidAudio
 import Foundation
 
 enum BenchmarkModel: String, Codable, CaseIterable {
-    /// What Loqui ships today: Parakeet TDT 0.6B v2, called the way
-    /// `FluidAudioParakeetRecognizer` calls it.
+    /// Parakeet TDT 0.6B v2, what Loqui shipped before 1.1.0.
     case v2
-    /// Parakeet Unified English 0.6B, whole clip at once (issue #12).
+    /// Parakeet Unified English 0.6B, whole clip at once, the way
+    /// `FluidAudioParakeetRecognizer` calls it (issue #12).
     case unified
     /// Parakeet Unified English 0.6B fed in 100 ms chunks like live audio, at
     /// the default 2.08 s latency tier (issue #13).
@@ -15,11 +15,16 @@ enum BenchmarkModel: String, Codable, CaseIterable {
     func makeEngine(modelDirectory: URL?) throws -> any SpeechEngine {
         switch self {
         case .v2:
-            let directory = modelDirectory ?? Self.repositoryModelDirectory
-            guard FileManager.default.fileExists(atPath: directory.path) else {
-                throw BenchmarkError("No v2 model at \(directory.path). Run ./setup.sh or pass --model-dir.")
+            if let modelDirectory {
+                guard FileManager.default.fileExists(atPath: modelDirectory.path) else {
+                    throw BenchmarkError("No v2 model at \(modelDirectory.path).")
+                }
+                return ParakeetV2Engine(directory: modelDirectory)
             }
-            return ParakeetV2Engine(directory: directory)
+            // Loqui no longer installs v2, so use a checkout's leftover copy
+            // when there is one and download it otherwise.
+            let leftover = Self.repositoryModelDirectory
+            return ParakeetV2Engine(directory: FileManager.default.fileExists(atPath: leftover.path) ? leftover : nil)
         case .unified:
             return UnifiedBatchEngine()
         case .unifiedStream:
@@ -47,14 +52,21 @@ protocol SpeechEngine: AnyObject {
 }
 
 final class ParakeetV2Engine: SpeechEngine {
-    private let directory: URL
+    private let directory: URL?
     private var models: AsrModels?
 
-    init(directory: URL) { self.directory = directory }
+    /// Pass `nil` to use FluidAudio's download cache, about 450 MB on first use.
+    init(directory: URL?) { self.directory = directory }
 
     func load() async throws -> TimeInterval {
+        let source: URL
+        if let directory {
+            source = directory
+        } else {
+            source = try await AsrModels.download(version: .v2)
+        }
         let start = Date()
-        models = try AsrModels.loadLocal(from: directory, version: .v2, configuration: AsrModels.defaultConfiguration())
+        models = try AsrModels.loadLocal(from: source, version: .v2, configuration: AsrModels.defaultConfiguration())
         return Date().timeIntervalSince(start)
     }
 
