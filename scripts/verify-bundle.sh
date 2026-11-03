@@ -147,6 +147,7 @@ LOQUI_DEPENDENCY_MANIFEST="$DEPENDENCY_MANIFEST" \
     "$SCRIPT_DIR/dependency-tool.sh" verify-model "$BUNDLED_MODEL"
 
 [[ -r "$APP_PATH/Contents/Resources/Licenses/ParakeetNOTICE.txt" ]] || fail "Parakeet attribution is missing"
+[[ -r "$APP_PATH/Contents/Resources/Licenses/NVIDIA-Open-Model-License.txt" ]] || fail "NVIDIA Open Model License is missing"
 [[ -r "$APP_PATH/Contents/Resources/Licenses/FluidAudio-Apache-2.0.txt" ]] || fail "FluidAudio license is missing"
 codesign --verify --deep --strict --verbose=4 "$APP_PATH"
 SIGNATURE_DETAILS="$(codesign --display --verbose=4 "$APP_PATH" 2>&1)"

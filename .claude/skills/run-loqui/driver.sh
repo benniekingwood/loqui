@@ -46,7 +46,7 @@ signing_identity() {
 cmd_build() {
     cd "$ROOT"
     if ! ./scripts/dependency-tool.sh verify-model >/dev/null 2>&1; then
-        echo "==> Installing pinned Parakeet model (~1.2 GB download)..."
+        echo "==> Installing pinned Parakeet model (~614 MB download)..."
         ./scripts/dependency-tool.sh install-model
     fi
     local signing

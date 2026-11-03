@@ -179,6 +179,7 @@ SDK_SOURCE="$PACKAGE_DIR/.build/release-arm64/checkouts/FluidAudio"
 cp -- "$SDK_SOURCE/LICENSE" "$RESOURCES/Licenses/FluidAudio-Apache-2.0.txt"
 cp -R -- "$SDK_SOURCE/ThirdPartyLicenses" "$RESOURCES/Licenses/FluidAudio-ThirdParty"
 cp -- "$PACKAGE_DIR/Sources/LoquiParakeet/Resources/ParakeetNOTICE.txt" "$RESOURCES/Licenses/ParakeetNOTICE.txt"
+cp -- "$PACKAGE_DIR/Sources/LoquiParakeet/Resources/NVIDIA-Open-Model-License.txt" "$RESOURCES/Licenses/NVIDIA-Open-Model-License.txt"
 # SwiftPM checkouts are read-only; the copied notices must permit xattr cleanup.
 chmod -R u+w "$RESOURCES/Licenses"
 LOQUI_DEPENDENCY_MANIFEST="$DEPENDENCY_MANIFEST" \

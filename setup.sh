@@ -18,7 +18,7 @@ if [[ -n "${LOQUI_MODEL_MANIFEST:-}" && "$LOQUI_MODEL_MANIFEST" != "$MODEL_MANIF
     exit 1
 fi
 export LOQUI_MODEL_MANIFEST="$MODEL_MANIFEST"
-echo "==> Installing the pinned English Parakeet v2 models..."
+echo "==> Installing the pinned Parakeet Unified English model..."
 MODEL_PATH="${LOQUI_MODEL_PATH:-$REPOSITORY_ROOT/models/$MODEL_DIRECTORY_NAME}"
 "$DEPENDENCY_TOOL" install-model "$MODEL_PATH"
 

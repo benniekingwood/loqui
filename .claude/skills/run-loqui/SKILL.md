@@ -49,7 +49,7 @@ pid 93757
 menu bar icon: window 54332 exists but is OFF-SCREEN (menu bar full / hidden behind the notch)
 waiting for model (up to 90s)...
 hotkey: rightOption monitor registered
-model: Parakeet TDT 0.6B v2 ready
+model: Parakeet Unified English 0.6B ready
 ```
 
 `ss` writes `<tag>-full.png` (whole screen) and `<tag>-icon.png` (the

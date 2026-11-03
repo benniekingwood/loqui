@@ -11,9 +11,9 @@ final class ParakeetModelResolverTests: XCTestCase {
         root = FileManager.default.temporaryDirectory.appendingPathComponent("Loqui-ParakeetResolver-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         manifestURL = root.appendingPathComponent("manifest.json")
-        let paths = ParakeetModelContract.requiredComponents.map { $0 + "/coremldata.bin" } + ["parakeet_vocab.json"]
+        let paths = ParakeetModelContract.requiredComponents.map { $0 + "/coremldata.bin" } + [ParakeetModelContract.vocabularyFile]
         let manifest: [String: Any] = [
-            "repository": "FluidInference/parakeet-tdt-0.6b-v2-coreml",
+            "repository": "FluidInference/parakeet-unified-en-0.6b-coreml",
             "revision": String(repeating: "a", count: 40),
             "directory": ParakeetModelContract.directoryName,
             "fluidAudioVersion": ParakeetModelContract.sdkVersion,
@@ -61,7 +61,7 @@ final class ParakeetModelResolverTests: XCTestCase {
     func testIncompletePreferredBundleCannotFallBackToOtherWeights() throws {
         let bundle = try stageModels(under: root.appendingPathComponent("resources"))
         _ = try stageModels(under: root.appendingPathComponent("checkout"))
-        try FileManager.default.removeItem(at: bundle.appendingPathComponent("Encoder.mlmodelc/coremldata.bin"))
+        try FileManager.default.removeItem(at: bundle.appendingPathComponent(ParakeetModelContract.requiredComponents[0] + "/coremldata.bin"))
         let config = configuration(environment: ["LOQUI_DEVELOPMENT_ROOT": root.appendingPathComponent("checkout").path])
         guard case .failure(.invalidModel) = ParakeetModelResolver(configuration: config).preflight() else {
             return XCTFail("Expected the incomplete bundled model to fail")
@@ -70,7 +70,7 @@ final class ParakeetModelResolverTests: XCTestCase {
 
     func testTruncatedModelAndUnreadableManifestAreRejected() throws {
         let model = try stageModels(under: root.appendingPathComponent("resources"))
-        try Data().write(to: model.appendingPathComponent("Decoder.mlmodelc/coremldata.bin"))
+        try Data().write(to: model.appendingPathComponent(ParakeetModelContract.requiredComponents[1] + "/coremldata.bin"))
         guard case .failure(.invalidModel) = ParakeetModelResolver(configuration: configuration()).preflight() else {
             return XCTFail("Expected a truncated model to fail")
         }
@@ -94,7 +94,7 @@ final class ParakeetModelResolverTests: XCTestCase {
         for component in ParakeetModelContract.requiredComponents {
             XCTAssertTrue(manifest.files.contains { $0.path == component + "/coremldata.bin" })
         }
-        XCTAssertTrue(manifest.files.contains { $0.path == "parakeet_vocab.json" })
+        XCTAssertTrue(manifest.files.contains { $0.path == ParakeetModelContract.vocabularyFile })
         for file in manifest.files {
             XCTAssertGreaterThan(file.size, 0)
             XCTAssertNotNil(file.sha256.range(of: "^[0-9a-f]{64}$", options: .regularExpression))
@@ -114,14 +114,14 @@ final class ParakeetModelResolverTests: XCTestCase {
         guard case .ready = resolver.preflight() else { return XCTFail("The manifest must be cached after the first read") }
 
         // ...but a damaged model is still caught on the next preflight.
-        try Data("x".utf8).write(to: model.appendingPathComponent("parakeet_vocab.json"))
+        try Data("x".utf8).write(to: model.appendingPathComponent(ParakeetModelContract.vocabularyFile))
         guard case .failure(.invalidModel) = resolver.preflight() else { return XCTFail("A resized model file must fail") }
     }
 
     func testReadinessSummaryNamesModelBackendAndSource() throws {
         _ = try stageModels(under: root.appendingPathComponent("resources"))
         let readiness = try resolved(configuration()).readiness
-        XCTAssertEqual(readiness.summary, "Parakeet TDT 0.6B v2; FluidAudio=\(ParakeetModelContract.sdkVersion); model source=bundled")
+        XCTAssertEqual(readiness.summary, "Parakeet Unified English 0.6B; FluidAudio=\(ParakeetModelContract.sdkVersion); model source=bundled")
     }
 
     private func configuration(environment: [String: String] = [:]) -> ParakeetResolverConfiguration {
