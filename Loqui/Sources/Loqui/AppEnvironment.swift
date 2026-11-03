@@ -42,6 +42,7 @@ struct AppEnvironment {
             textDelivery: TextDeliveryService(),
             speechModelName: ParakeetSpeechBackend.displayName,
             applicationBundleIdentifier: Bundle.main.bundleIdentifier,
+            transcriptCleanup: { TranscriptCleanup(defaults: .standard) },
             startupPresentation: startupPresentation
         )
         return AppEnvironment(

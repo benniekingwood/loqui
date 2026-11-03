@@ -87,6 +87,8 @@ package final class TranscriptionEngine: ObservableObject {
     private let maximumDuration: TimeInterval
     private let livePreviewInterval: TimeInterval
     private let livePreview: LiveTranscriptionPreview
+    /// Read when each transcript arrives, so Settings changes apply right away.
+    private let transcriptCleanup: @MainActor () -> TranscriptCleanup
 
     /// Peak level below which a recording holds no speech. Real speech peaks far
     /// above this even from across a room; digital silence sits at -infinity.
@@ -125,6 +127,7 @@ package final class TranscriptionEngine: ObservableObject {
         applicationBundleIdentifier: String? = AppIdentity.bundleIdentifier,
         maximumDuration: TimeInterval = TranscriptionEngine.maximumRecordingDuration,
         livePreviewInterval: TimeInterval = 0.25,
+        transcriptCleanup: @escaping @MainActor () -> TranscriptCleanup = { .none },
         performStartupCleanup: Bool = true,
         startupPresentation: Presentation? = nil
     ) {
@@ -139,6 +142,7 @@ package final class TranscriptionEngine: ObservableObject {
         self.applicationBundleIdentifier = applicationBundleIdentifier
         self.maximumDuration = maximumDuration
         self.livePreviewInterval = max(0.1, livePreviewInterval)
+        self.transcriptCleanup = transcriptCleanup
         self.speechModelName = speechModelName
         livePreview = LiveTranscriptionPreview(transcriber: transcriber)
         state = startupPresentation?.state ?? .idle
@@ -415,8 +419,10 @@ package final class TranscriptionEngine: ObservableObject {
                               self.currentRecorderHasAudio else {
                             return
                         }
+                        let draft = self.transcriptCleanup().draftTranscript(text)
+                        guard !draft.isEmpty else { return }
                         _ = await self.textDelivery.updateLiveTranscript(
-                            text,
+                            draft,
                             in: self.currentSessionTarget
                         )
                     }
@@ -574,7 +580,7 @@ package final class TranscriptionEngine: ObservableObject {
 
             self.removeCurrentRecording()
             await self.handleTranscriptionOutcome(
-                outcome,
+                self.transcriptCleanup().apply(to: outcome),
                 sessionIdentifier: sessionIdentifier
             )
         }
