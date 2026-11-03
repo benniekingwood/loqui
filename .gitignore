@@ -23,3 +23,9 @@ models/
 
 # Python fixture bytecode
 __pycache__/
+
+# Model benchmark: personal recordings, results, and its own build
+benchmarks/corpus/
+benchmarks/results/
+benchmarks/ModelBenchmark/.build/
+benchmarks/ModelBenchmark/.swiftpm/

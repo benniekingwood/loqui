@@ -166,7 +166,9 @@ pull request that skips this.
 Open `Loqui/Package.swift` in Xcode to edit and run tests. The app needs a real
 bundle for microphone and Accessibility access, so run it through `./bundle.sh`
 or `./scripts/deploy.sh` rather than `swift run`. See
-[docs/TESTING.md](docs/TESTING.md) for the real-model and microphone checks, and
+[docs/TESTING.md](docs/TESTING.md) for the real-model and microphone checks,
+[benchmarks/README.md](benchmarks/README.md) for comparing speech models on
+your own dictation, and
 [docs/RELEASING.md](docs/RELEASING.md) for signing, notarization, and releases.
 
 ## Acknowledgments

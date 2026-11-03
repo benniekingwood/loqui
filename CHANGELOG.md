@@ -8,6 +8,19 @@ break existing setups or drop support, a **minor** bump for new features, and a
 [docs/RELEASING.md](docs/RELEASING.md#versions-and-the-changelog) for the
 workflow.
 
+## [1.0.2] - 2026-11-02
+
+### Added
+
+- A model benchmark for comparing speech models on your own dictation before
+  Loqui switches to one. `loqui-model-bench record` walks you through
+  recording prompts, and `./scripts/benchmark-models.sh` compares Parakeet v2,
+  Parakeet Unified English, and Unified streaming on accuracy, latency, load
+  time, and memory. It's a separate package under `benchmarks/` and isn't part
+  of the app. It refuses silent recordings, which macOS produces when the
+  terminal isn't allowed to use the microphone. See
+  [benchmarks/README.md](benchmarks/README.md).
+
 ## [1.0.1] - 2026-10-22
 
 ### Fixed
