@@ -13,11 +13,14 @@ workflow.
 ### Added
 
 - Filler words such as "um", "uh", and "erm" are removed from drafts and the
-  final transcript. Words that only look like fillers ("umbrella", "uh-huh",
-  "ER") are kept. On by default; turn it off under Settings › Text.
+  final transcript, along with the commas around them, so "we should, uh, ship
+  it" becomes "we should ship it". Words that only look like fillers
+  ("umbrella", "uh-huh", "ER") are kept. On by default; turn it off under
+  Settings › Text.
 - Spoken formatting: say "new line", "new paragraph", "open quote", or "close
-  quote" to format the final transcript. Drafts never type line breaks. Off by
-  default; turn it on under Settings › Text.
+  quote" to format the final transcript. The line after a break starts with a
+  capital. Drafts never type line breaks. Off by default; turn it on under
+  Settings › Text.
 
 ### Changed
 

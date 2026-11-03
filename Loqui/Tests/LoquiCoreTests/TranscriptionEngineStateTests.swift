@@ -340,7 +340,7 @@ final class TranscriptionEngineStateTests: XCTestCase {
         engine.toggleRecording()
         await waitUntilWithDelay { engine.state == .idle }
 
-        XCTAssertEqual(delivery.finalizedTexts, ["The final\ndone"])
+        XCTAssertEqual(delivery.finalizedTexts, ["The final\nDone"])
     }
 
     func testAFinalTranscriptOfOnlyFillersDeliversNothing() async {

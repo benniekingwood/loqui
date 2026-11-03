@@ -47,8 +47,10 @@ package struct TranscriptCleanup: Equatable, Sendable {
 /// Removes the hesitations a speech model writes down verbatim ("um", "uh",
 /// "erm", ...). A filler matches only as a whole word, lowercase or with just
 /// its first letter capitalized, so "umbrella", "uh-huh", and "ER" stay. The
-/// comma or ellipsis after a filler goes with it, the surrounding spaces close
-/// up, and a filler that started a sentence hands its capital to the next word.
+/// comma or ellipsis after a filler goes with it, and so does a comma before
+/// it when it had one after ("we should, uh, go" becomes "we should go"). The
+/// surrounding spaces close up, and a filler that started a sentence hands its
+/// capital to the next word.
 ///
 /// Behavior follows Hex's filler-word pass (github.com/anomalyco/hex, MIT).
 package enum FillerWords {
@@ -68,7 +70,9 @@ package enum FillerWords {
                 if !removed {
                     capitalizeNext = characters[index].isUppercase && output.endsSentence
                 }
-                index = continuation(after: end, in: characters)
+                let resume = continuation(after: end, in: characters)
+                if resume.tookSeparator { output.trimTrailing(also: [","]) }
+                index = resume.index
                 removed = true
                 continue
             }
@@ -121,17 +125,20 @@ package enum FillerWords {
     }
 
     /// Where the text resumes after a filler ending at `end`, past its own
-    /// comma or ellipsis.
-    private static func continuation(after end: Int, in characters: [Character]) -> Int {
+    /// comma or ellipsis, and whether it had one.
+    private static func continuation(after end: Int, in characters: [Character]) -> (index: Int, tookSeparator: Bool) {
         var index = skipInlineSpaces(in: characters, from: end)
+        var tookSeparator = false
         if index < characters.count {
             if characters[index] == "," || characters[index] == "…" {
                 index += 1
+                tookSeparator = true
             } else if characters[index...].starts(with: "...") {
                 index += 3
+                tookSeparator = true
             }
         }
-        return skipInlineSpaces(in: characters, from: index)
+        return (skipInlineSpaces(in: characters, from: index), tookSeparator)
     }
 }
 
@@ -139,7 +146,8 @@ package enum FillerWords {
 /// "line break" become a line break, "new paragraph" a blank line, and "open
 /// quote" / "close quote" quotation marks. Commands match as whole words in any
 /// case ("newline" and "new liner" stay), and the commas and periods a model
-/// puts around a command go with it.
+/// puts around a command go with it. The word after a break starts with a
+/// capital, unless it already has one inside ("iPhone").
 ///
 /// Behavior follows Hex's spoken-formatting pass (github.com/anomalyco/hex, MIT).
 package enum SpokenFormatting {
@@ -161,16 +169,31 @@ package enum SpokenFormatting {
         let characters = Array(transcript)
         var output = ""
         var index = 0
+        var capitalizeNext = false
         while index < characters.count {
             let startsWord = index == 0 || !characters[index - 1].isWordCharacter
             if startsWord, let (command, end) = command(in: characters, at: index) {
                 index = emit(command, into: &output, characters: characters, end: end)
+                if case .lineBreaks = command { capitalizeNext = true }
                 continue
             }
-            output.append(characters[index])
+            let character = characters[index]
+            if capitalizeNext, character.isWordCharacter {
+                capitalizeNext = false
+                if character.isLowercase, !hasCapitalInside(characters, wordStart: index) {
+                    output.append(character.uppercased())
+                    index += 1
+                    continue
+                }
+            }
+            output.append(character)
             index += 1
         }
         return output
+    }
+
+    private static func hasCapitalInside(_ characters: [Character], wordStart: Int) -> Bool {
+        characters[(wordStart + 1)...].prefix { $0.isWordCharacter }.contains { $0.isUppercase }
     }
 
     private static func command(in characters: [Character], at start: Int) -> (Command, Int)? {
