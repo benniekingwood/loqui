@@ -80,6 +80,10 @@ enum Recorder {
             default: break
             }
             let samples = try captureUntilEnter()
+            if Clip.isSilent(samples) {
+                print(silentTakeHelp)
+                continue
+            }
             let seconds = Double(samples.count) / 16000
             print(String(format: "Recorded %.1f s. Enter keeps it, r records again: ", seconds), terminator: "")
             if readLine()?.lowercased() != "r" {
@@ -103,6 +107,21 @@ enum Recorder {
         engine.stop()
         input.removeTap(onBus: 0)
         return try AudioConverter().resample(buffer.samples, from: format.sampleRate)
+    }
+
+    /// macOS hands a process silence, not an error, when the app it runs
+    /// under isn't allowed to use the microphone.
+    private static var silentTakeHelp: String {
+        let app = ProcessInfo.processInfo.environment["TERM_PROGRAM"].map { "your terminal (\($0))" } ?? "your terminal"
+        return """
+
+        That take was silent: the microphone sent nothing but zeros, so it was not kept.
+        macOS does this when \(app) isn't allowed to use the microphone, even if it
+        says access was granted. Open System Settings › Privacy & Security › Microphone,
+        turn \(app) on (or off and on again), quit and reopen it, then try again.
+        Also check that the input under System Settings › Sound is the mic you're using.
+
+        """
     }
 
     private static func save(_ samples: [Float], reference: String, name: String, in directory: URL) throws {

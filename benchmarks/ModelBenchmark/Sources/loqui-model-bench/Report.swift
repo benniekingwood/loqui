@@ -39,7 +39,7 @@ enum Report {
             )
         }
         lines.append("")
-        lines.append("### Clips where the models differ")
+        lines.append("### Clips that any model got wrong")
         lines.append("")
         let byID = results.map { result in Dictionary(uniqueKeysWithValues: result.clips.map { ($0.id, $0) }) }
         for clip in results[0].clips {
@@ -50,7 +50,8 @@ enum Report {
             lines.append("- reference: \(clip.reference)")
             for (result, clips) in zip(results, byID) {
                 guard let other = clips[clip.id] else { continue }
-                lines.append("- \(result.model.rawValue) (\(other.wordErrors) errors): \(other.transcript)")
+                let transcript = other.transcript.isEmpty ? "_(nothing)_" : other.transcript
+                lines.append("- \(result.model.rawValue) (\(other.wordErrors) errors): \(transcript)")
             }
             lines.append("")
         }

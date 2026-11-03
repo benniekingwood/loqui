@@ -41,6 +41,15 @@ are 16 kHz WAV files with a `.txt` reference beside each. `benchmarks/corpus/`
 is ignored by Git, so your voice never gets committed. You can also drop in
 your own `.wav` or `.m4a` files with a matching `.txt`.
 
+### If a recording is silent
+
+The recorder won't keep a silent take, and `run` refuses a corpus with silent
+clips. macOS sends silence instead of an error when your terminal app isn't
+allowed to use the microphone, even after saying access was granted. Open
+System Settings › Privacy & Security › Microphone, turn your terminal on (or
+off and on again), quit and reopen it, and record again. If it's still silent,
+check the input under System Settings › Sound, or record from Terminal.app.
+
 ## 2. Compare
 
 ```sh
@@ -58,7 +67,7 @@ It prints a Markdown table and saves it, with the raw JSON, to
 - **Load** is loading an already-compiled model. **Peak memory** is the
   benchmark process's peak resident memory.
 
-The report then lists each clip where the models' transcripts differ.
+The report then lists each clip that any model got wrong, with every model's text.
 
 For a fair comparison, keep your Mac plugged in, close other heavy apps, and
 run it twice. Results from someone else's Mac don't carry over to yours.

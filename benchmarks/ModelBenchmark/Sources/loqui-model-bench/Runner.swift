@@ -104,6 +104,14 @@ struct Clip {
     let id: String
     let reference: String
     let samples: [Float]
+
+    /// Below this peak a clip holds no usable sound. A working microphone
+    /// picks up room noise above it even when nobody is talking.
+    static let silentPeak: Float = 0.001
+
+    static func isSilent(_ samples: [Float]) -> Bool {
+        !samples.contains { abs($0) >= silentPeak }
+    }
 }
 
 /// A corpus is a directory of audio files, each with a `.txt` reference of the
@@ -114,7 +122,7 @@ enum Corpus {
     static func load(from directory: URL) throws -> [Clip] {
         let converter = AudioConverter()
         let files = try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
-        return try files
+        let clips: [Clip] = try files
             .filter { audioExtensions.contains($0.pathExtension.lowercased()) }
             .sorted { $0.lastPathComponent < $1.lastPathComponent }
             .compactMap { audio in
@@ -129,6 +137,14 @@ enum Corpus {
                     samples: converter.resampleAudioFile(audio)
                 )
             }
+        let silent = clips.filter { Clip.isSilent($0.samples) }.map(\.id)
+        guard silent.isEmpty else {
+            throw BenchmarkError("""
+            These clips are silent, so the results would be meaningless: \(silent.joined(separator: ", ")).
+            Delete them and record again. See "If a recording is silent" in benchmarks/README.md.
+            """)
+        }
+        return clips
     }
 }
 
