@@ -25,24 +25,24 @@
       "sha256": "96f990461a5986d5e7309ad1a0f36084fbf0f4b28aec35948f8b8d0dcbf8599e"
     },
     {
-      "path": "parakeet_unified_encoder_int8.mlmodelc/analytics/coremldata.bin",
+      "path": "parakeet_unified_encoder_streaming_70_7_7_int8.mlmodelc/analytics/coremldata.bin",
       "size": 243,
-      "sha256": "57e116a9d5765e39c0cdf754137ab744ddae34d9c6d68a5fdcad6600ae3a7b6b"
+      "sha256": "2e1831ca50902be65664ab7dd1182f0d096eaef387e424b135f8cf896ffcec2e"
     },
     {
-      "path": "parakeet_unified_encoder_int8.mlmodelc/coremldata.bin",
-      "size": 492,
-      "sha256": "54f533d30343d5e62b324a0691e4c262a6768b07b6e88e7aa14c617a2baba8a3"
+      "path": "parakeet_unified_encoder_streaming_70_7_7_int8.mlmodelc/coremldata.bin",
+      "size": 513,
+      "sha256": "5f174a7cf6b1a9dd77fb479194f8a286e99d4375b67a86ffc66a42fb36e4d0dc"
     },
     {
-      "path": "parakeet_unified_encoder_int8.mlmodelc/model.mil",
-      "size": 1110902,
-      "sha256": "c1c5d71c6cbf4d35bba08458746bde3640da7b1b444e1229a269393a58222c10"
+      "path": "parakeet_unified_encoder_streaming_70_7_7_int8.mlmodelc/model.mil",
+      "size": 935329,
+      "sha256": "ce508730f3ea72cc8459ac491a8afd3477cee7f88b13d2eb5628ea60eef94f22"
     },
     {
-      "path": "parakeet_unified_encoder_int8.mlmodelc/weights/weight.bin",
-      "size": 595051904,
-      "sha256": "f984b81590a4deae041ae20fbab8981c2d2a5b528b2ac81fae81c432633535c6"
+      "path": "parakeet_unified_encoder_streaming_70_7_7_int8.mlmodelc/weights/weight.bin",
+      "size": 589979840,
+      "sha256": "f145c8da6226eb2ad1c312d1a44c7757c97b0b941c73725b36b28ff17d12285b"
     },
     {
       "path": "parakeet_unified_joint_decision_single_step.mlmodelc/analytics/coremldata.bin",

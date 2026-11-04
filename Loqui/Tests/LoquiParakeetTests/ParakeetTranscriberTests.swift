@@ -110,6 +110,102 @@ final class ParakeetTranscriberTests: XCTestCase {
         XCTAssertEqual(readiness.location, Self.fixtureLocation.model.url)
     }
 
+    func testDraftsStreamOnlyNewAudioAndTheFinalFlushesOnlyTheRest() async throws {
+        let backend = ParakeetRecognizerFake(text: " ask not ")
+        backend.recording = Self.speech(seconds: 1.25)
+        let recognizer = transcriber(backend: backend)
+        let started = await recognizer.beginStream()
+        let stream = try XCTUnwrap(started)
+
+        let first = await stream.draft(from: Self.speech(seconds: 0.5))
+        let second = await stream.draft(from: Self.speech(seconds: 1))
+        let final = await stream.finish(audioURL: URL(fileURLWithPath: "/fixture.wav"))
+
+        XCTAssertEqual(first, .success("ask not"))
+        XCTAssertEqual(second, .success("ask not"))
+        XCTAssertEqual(final, .success("ask not"))
+        XCTAssertEqual(backend.calls, [.reset, .stream(8000), .stream(8000), .stream(4000), .finish])
+    }
+
+    func testAFinalWithoutALiveStreamStreamsTheWholeRecording() async {
+        let backend = ParakeetRecognizerFake()
+        backend.recording = Self.speech(seconds: 3)
+        _ = await transcriber(backend: backend).transcribe(audioURL: URL(fileURLWithPath: "/fixture.wav"))
+        XCTAssertEqual(backend.calls, [.reset, .stream(48000), .finish])
+    }
+
+    func testAFailedDraftMakesTheFinalStartOver() async throws {
+        let backend = ParakeetRecognizerFake()
+        backend.recording = Self.speech(seconds: 1)
+        let recognizer = transcriber(backend: backend)
+        let started = await recognizer.beginStream()
+        let stream = try XCTUnwrap(started)
+        backend.failNextStreamCall()
+
+        let draft = await stream.draft(from: Self.speech(seconds: 0.5))
+        _ = await stream.finish(audioURL: URL(fileURLWithPath: "/fixture.wav"))
+
+        XCTAssertEqual(draft, .inferenceFailed(TranscriptionDiagnostic(domain: "CoreML", code: 3)))
+        XCTAssertEqual(backend.calls, [.reset, .stream(8000), .reset, .stream(16000), .finish])
+    }
+
+    func testAReplacedStreamDecodesNothing() async throws {
+        let backend = ParakeetRecognizerFake()
+        let recognizer = transcriber(backend: backend)
+        let started = await recognizer.beginStream()
+        let earlier = try XCTUnwrap(started)
+        _ = await recognizer.beginStream()
+
+        let draft = await earlier.draft(from: Self.speech(seconds: 1))
+
+        XCTAssertEqual(draft, .cancelled)
+        XCTAssertEqual(backend.calls, [.reset, .reset])
+    }
+
+    func testNoStreamStartsWithoutAModel() async {
+        let backend = ParakeetRecognizerFake()
+        let recognizer = ParakeetTranscriber(
+            resolver: ParakeetResolverFake(result: .failure(.missingModel(searchedPaths: []))),
+            audioValidator: ParakeetAudioValidatorFake(result: .valid(duration: 1)), recognizer: backend
+        )
+        let stream = await recognizer.beginStream()
+        XCTAssertNil(stream)
+        XCTAssertEqual(backend.calls, [])
+    }
+
+    func testSpeechIsNeverHeldBack() {
+        var pauses = PauseCap()
+        XCTAssertEqual(pauses.admit(Self.speech(seconds: 10)[...]).count, 160_000)
+    }
+
+    func testOnlyTheFirstTwoSecondsOfALongPauseAreStreamed() {
+        var pauses = PauseCap()
+        let audio = Self.speech(seconds: 1) + Self.level(-70, seconds: 10) + Self.speech(seconds: 1)
+        XCTAssertEqual(pauses.admit(audio[...]).count, 64000, "1 s of speech, 2 s of pause, 1 s of speech")
+    }
+
+    func testANoisyRoomHoldsNothingBack() {
+        var pauses = PauseCap()
+        let audio = Self.speech(seconds: 1) + Self.level(-40, seconds: 10) + Self.speech(seconds: 1)
+        XCTAssertEqual(pauses.admit(audio[...]).count, 192_000)
+    }
+
+    func testAPartialChunkWaitsForTheNextSliceOrTheFlush() {
+        var pauses = PauseCap()
+        XCTAssertEqual(pauses.admit(Self.speech(seconds: 0.0625)[...]).count, 0)
+        XCTAssertEqual(pauses.admit(Self.speech(seconds: 0.0625)[...]).count, 1600)
+        XCTAssertEqual(pauses.flush().count, 400)
+        XCTAssertEqual(pauses.flush().count, 0)
+    }
+
+    /// A steady signal at -20 dBFS stands in for speech.
+    private static func speech(seconds: Double) -> [Float] { level(-20, seconds: seconds) }
+
+    private static func level(_ decibels: Float, seconds: Double) -> [Float] {
+        let amplitude = pow(10, decibels / 20)
+        return (0 ..< Int(seconds * 16000)).map { $0.isMultiple(of: 2) ? amplitude : -amplitude }
+    }
+
     private static let fixtureLocation = ParakeetModelLocation(
         model: ResolvedDependencyPath(url: URL(fileURLWithPath: "/fixture/parakeet-models"), source: .bundled)
     )
@@ -151,17 +247,30 @@ private final class ParakeetTestClock: @unchecked Sendable {
     func advance(by interval: TimeInterval) { lock.withLock { current += interval } }
 }
 
+/// Records each streaming call. `stream` answers with `text`, and the final
+/// flush with `text` too; `samples(of:)` returns `recording`.
 private final class ParakeetRecognizerFake: ParakeetRecognizing, @unchecked Sendable {
+    enum Call: Equatable {
+        case reset
+        case stream(Int)
+        case finish
+    }
+
     private let lock = NSLock()
     private var loads = 0
-    private var transcriptions = 0
+    private var log: [Call] = []
     private let text: String
     private let error: NSError?
     private let loadError: NSError?
     private let block: Bool
+    private var failNextStream = false
+    var recording: [Float] = Array(repeating: 0, count: 16000)
     var loadCount: Int { lock.withLock { loads } }
-    var transcriptionCount: Int { lock.withLock { transcriptions } }
-    private(set) var sampleCounts: [Int] = []
+    var calls: [Call] { lock.withLock { log } }
+    var transcriptionCount: Int { lock.withLock { log.filter { $0 == .finish }.count } }
+    var sampleCounts: [Int] {
+        lock.withLock { log.compactMap { if case let .stream(count) = $0 { count } else { nil } } }
+    }
 
     init(text: String = "hello", error: NSError? = nil, loadError: NSError? = nil, block: Bool = false) {
         self.text = text
@@ -170,23 +279,34 @@ private final class ParakeetRecognizerFake: ParakeetRecognizing, @unchecked Send
         self.block = block
     }
 
+    func failNextStreamCall() { lock.withLock { failNextStream = true } }
+
     func loadModels(at directory: URL) async throws {
         lock.withLock { loads += 1 }
         if let loadError { throw loadError }
     }
 
-    func transcribe(audioURL: URL) async throws -> String {
-        lock.withLock { transcriptions += 1 }
-        if block { try await Task.sleep(for: .seconds(10)) }
-        if let error { throw error }
+    func samples(of audioURL: URL) async throws -> [Float] {
+        lock.withLock { recording }
+    }
+
+    func resetStream() async throws {
+        lock.withLock { log.append(.reset) }
+    }
+
+    func stream(_ samples: [Float]) async throws -> String {
+        let fail = lock.withLock {
+            log.append(.stream(samples.count))
+            defer { failNextStream = false }
+            return failNextStream
+        }
+        if fail { throw NSError(domain: "CoreML", code: 3) }
         return text
     }
 
-    func transcribe(samples: [Float]) async throws -> String {
-        lock.withLock {
-            transcriptions += 1
-            sampleCounts.append(samples.count)
-        }
+    func finishStream() async throws -> String {
+        lock.withLock { log.append(.finish) }
+        if block { try await Task.sleep(for: .seconds(10)) }
         if let error { throw error }
         return text
     }

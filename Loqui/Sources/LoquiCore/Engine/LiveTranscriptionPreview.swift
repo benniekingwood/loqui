@@ -6,16 +6,20 @@ private let livePreviewLogger = Logger(subsystem: AppIdentity.bundleIdentifier, 
 /// Owns the best-effort draft loop independently from the canonical final
 /// transcription. Preview failures never stop recording or deliver partial text.
 ///
-/// Each draft is a full pass over the audio captured so far, read straight from
-/// the recorder's memory: no snapshot file is written or re-read. A pass is
-/// skipped while no new audio has arrived, so a paused speaker costs nothing.
+/// Drafts read the recorder's memory: no snapshot file is written or re-read.
+/// When the backend streams, each draft decodes only the audio since the last
+/// one, and the stream is handed to the final pass by `takeStream()`.
+/// Otherwise each draft is a full pass over the audio captured so far. Either
+/// way a draft is skipped while no new audio has arrived, so a paused speaker
+/// costs nothing.
 @MainActor
 package final class LiveTranscriptionPreview {
-    /// Shorter audio holds too little speech for a useful draft.
+    /// Shorter audio holds too little speech for a useful full-pass draft.
     package static let minimumSampleCount = 8000
 
     private let transcriber: any SpeechTranscribing
     private var task: Task<Void, Never>?
+    private var stream: (any SpeechStreaming)?
 
     package init(transcriber: any SpeechTranscribing) {
         self.transcriber = transcriber
@@ -29,7 +33,13 @@ package final class LiveTranscriptionPreview {
         cleanup()
         let boundedInterval = max(0.1, interval)
         let transcriber = transcriber
-        task = Task { @MainActor in
+        task = Task { @MainActor [weak self] in
+            let stream = await transcriber.beginStream()
+            guard !Task.isCancelled, let self else {
+                stream?.cancel()
+                return
+            }
+            self.stream = stream
             var lastTranscript: String?
             var lastSampleCount = 0
             while !Task.isCancelled {
@@ -39,12 +49,16 @@ package final class LiveTranscriptionPreview {
                     break
                 }
                 guard let audio = samples(),
-                      audio.count >= Self.minimumSampleCount,
-                      audio.count != lastSampleCount else {
+                      audio.count != lastSampleCount,
+                      stream != nil || audio.count >= Self.minimumSampleCount else {
                     continue
                 }
                 lastSampleCount = audio.count
-                let outcome = await transcriber.transcribe(samples: audio)
+                let outcome = if let stream {
+                    await stream.draft(from: audio)
+                } else {
+                    await transcriber.transcribe(samples: audio)
+                }
                 guard !Task.isCancelled, case let .success(transcript) = outcome,
                       transcript != lastTranscript else {
                     continue
@@ -56,7 +70,8 @@ package final class LiveTranscriptionPreview {
         }
     }
 
-    /// Cancels the draft pass so the final flow can wait for it to wind down.
+    /// Cancels the draft loop so the final flow can start. The stream stays
+    /// open for `takeStream()`.
     package func stop() -> Task<Void, Never>? {
         let currentTask = task
         task = nil
@@ -64,8 +79,17 @@ package final class LiveTranscriptionPreview {
         return currentTask
     }
 
+    /// The dictation's stream, for the final pass to finish. Nil when the
+    /// backend does not stream or the stream had not started yet.
+    package func takeStream() -> (any SpeechStreaming)? {
+        defer { stream = nil }
+        return stream
+    }
+
     package func cleanup() {
         task?.cancel()
         task = nil
+        stream?.cancel()
+        stream = nil
     }
 }

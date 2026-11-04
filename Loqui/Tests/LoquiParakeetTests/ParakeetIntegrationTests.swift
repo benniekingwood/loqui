@@ -65,6 +65,18 @@ final class ParakeetIntegrationTests: XCTestCase {
             XCTAssertTrue(capture.close())
             guard case let .success(draftText) = draft else { return XCTFail("Expected a draft from the first three seconds") }
             XCTAssertTrue(draftText.lowercased().contains("fellow"))
+
+            // Stream the same first three seconds as drafts, then finish from
+            // the recording: the flush must carry the rest of the speech.
+            let stream = await transcriber.beginStream()
+            let live = try XCTUnwrap(stream, "The pinned model must stream")
+            for end in stride(from: 4000, through: samples.count, by: 4000) {
+                _ = await live.draft(from: Array(samples[..<end]))
+            }
+            let streamed = await live.finish(audioURL: fixture)
+            guard case let .success(streamedText) = streamed else { return XCTFail("Expected a streamed final transcript") }
+            XCTAssertTrue(streamedText.lowercased().contains("fellow"))
+            XCTAssertTrue(streamedText.lowercased().contains("ask not"))
         #endif
     }
 }
