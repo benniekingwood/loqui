@@ -8,7 +8,8 @@ usage:
       --free records what you'd normally dictate, then asks you to type it.
   loqui-model-bench prepare <model>
       Download the model if needed and load it once, so later runs time only
-      inference. Models: v2, unified, unified-stream.
+      inference. Models: v2, unified, unified-stream, unified-stream-1120ms,
+      unified-stream-320ms.
   loqui-model-bench run <corpus-dir> <model> [--model-dir DIR] [--passes N] [--output FILE]
       Load the model once, warm it up, then transcribe every clip N times
       (default 5). Writes a JSON result.

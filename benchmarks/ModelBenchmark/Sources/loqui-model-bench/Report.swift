@@ -18,14 +18,17 @@ enum Report {
                 "Clips: \(results[0].clips.count), \(String(format: "%.0f", results[0].clips.map(\.durationSeconds).reduce(0, +))) s of audio; \(results[0].passes) timed passes each"
             )
         lines.append("")
-        lines.append("| Model | WER | Formatted WER | Median clip | p95 clip | Real time | Load | First pass | Peak memory |")
-        lines.append("|---|---:|---:|---:|---:|---:|---:|---:|---:|")
+        lines.append(
+            "| Model | WER | Formatted WER | Median clip | p95 clip | Median after release | p95 after release | Real time | Load | First pass | Peak memory |"
+        )
+        lines.append("|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|")
         for result in results {
             let stats = Stats(result)
             lines.append(
                 String(
-                    format: "| %@ | %.2f%% | %.2f%% | %.0f ms | %.0f ms | %.0f× | %.2f s | %.0f ms | %.0f MB |",
+                    format: "| %@ | %.2f%% | %.2f%% | %.0f ms | %.0f ms | %@ | %@ | %.0f× | %.2f s | %.0f ms | %.0f MB |",
                     result.model.rawValue, stats.wer, stats.formattedWer, stats.medianMs, stats.p95Ms,
+                    Self.milliseconds(stats.releaseMedianMs), Self.milliseconds(stats.releaseP95Ms),
                     stats.realTimeFactor, result.loadSeconds, result.firstPassMs, result.peakMemoryMB
                 )
             )
@@ -33,9 +36,12 @@ enum Report {
 
         lines.append("")
         lines.append("WER ignores case and punctuation. Formatted WER compares the text exactly as it would be typed.")
-        if results.contains(where: { $0.model == .unifiedStream }) {
+        lines.append(
+            "After release is the wait between the end of the audio and the final text. A batch model does all its work then, so it matches the clip time."
+        )
+        if results.contains(where: { $0.model.isStreaming }) {
             lines.append(
-                "unified-stream times the compute to stream a whole clip in 100 ms chunks. Live, that work is spread across the time you speak."
+                "A streaming model's clip time is the compute to stream a whole clip in 100 ms chunks. Live, all but the after-release part happens while you speak."
             )
         }
         lines.append("")
@@ -58,11 +64,17 @@ enum Report {
         return lines.joined(separator: "\n")
     }
 
+    private static func milliseconds(_ value: Double?) -> String {
+        value.map { String(format: "%.0f ms", $0) } ?? "–"
+    }
+
     private struct Stats {
         let wer: Double
         let formattedWer: Double
         let medianMs: Double
         let p95Ms: Double
+        let releaseMedianMs: Double?
+        let releaseP95Ms: Double?
         let realTimeFactor: Double
 
         init(_ result: RunResult) {
@@ -74,6 +86,14 @@ enum Report {
             let medians = result.clips.map { Self.percentile($0.latenciesMs, 0.5) }
             medianMs = Self.percentile(medians, 0.5)
             p95Ms = Self.percentile(result.clips.flatMap(\.latenciesMs), 0.95)
+            let releases = result.clips.compactMap(\.releaseMs)
+            if releases.count == result.clips.count {
+                releaseMedianMs = Self.percentile(releases.map { Self.percentile($0, 0.5) }, 0.5)
+                releaseP95Ms = Self.percentile(releases.flatMap { $0 }, 0.95)
+            } else {
+                releaseMedianMs = nil
+                releaseP95Ms = nil
+            }
             let audio = result.clips.map(\.durationSeconds).reduce(0, +)
             realTimeFactor = audio / max(0.001, medians.reduce(0, +) / 1000)
         }

@@ -8,6 +8,18 @@ break existing setups or drop support, a **minor** bump for new features, and a
 [docs/RELEASING.md](docs/RELEASING.md#versions-and-the-changelog) for the
 workflow.
 
+## [1.2.1] - 2026-11-04
+
+### Added
+
+- The model benchmark reports the wait after you stop speaking ("after
+  release") alongside clip time. For Unified streaming, that's only the final
+  flush, since the rest of the work happens while you speak.
+- Two faster streaming settings to benchmark, `unified-stream-1120ms` and
+  `unified-stream-320ms`, whose drafts trail speech by about 1.1 s and 0.3 s
+  instead of 2.1 s. Each is an extra download of about 580 MB. See
+  [#13](https://github.com/benniekingwood/loqui/issues/13) for the results.
+
 ## [1.2.0] - 2026-11-03
 
 ### Added
