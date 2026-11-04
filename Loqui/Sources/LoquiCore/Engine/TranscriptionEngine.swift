@@ -458,8 +458,9 @@ package final class TranscriptionEngine: ObservableObject {
             if let self, self.currentSessionIdentifier == sessionIdentifier, self.state == .stopping {
                 self.recordingStoppedCue.play()
             }
-            // Preview/final decoders are independent. Cancel drafts immediately
-            // and start the final pass without waiting for preview cleanup.
+            // Cancel drafts immediately and start the final pass without waiting
+            // for preview cleanup. A streaming backend queues the final flush
+            // behind any draft still decoding.
             guard let self,
                   self.currentSessionIdentifier == sessionIdentifier,
                   self.state == .stopping else {
@@ -570,10 +571,15 @@ package final class TranscriptionEngine: ObservableObject {
             return
         }
         transition(to: Presentation(state: .transcribing, statusText: "Transcribing…"))
+        let stream = livePreview.takeStream()
 
         activeTask = Task { @MainActor [weak self] in
             guard let self else { return }
-            let outcome = await self.transcriber.transcribe(audioURL: recordingURL)
+            let outcome = if let stream {
+                await stream.finish(audioURL: recordingURL)
+            } else {
+                await self.transcriber.transcribe(audioURL: recordingURL)
+            }
             guard self.currentSessionIdentifier == sessionIdentifier else {
                 return
             }

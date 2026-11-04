@@ -14,8 +14,8 @@ model on Apple Silicon.
 - **Hold to dictate.** Hold the dictation key (Right Option by default), wait
   for the short ready chime, speak, and release. Double-tap the key for
   hands-free mode, then tap it once to stop.
-- **Live drafts.** Words appear at the cursor while you speak and are replaced
-  by one final, complete transcription when you stop.
+- **Live drafts.** Words appear at the cursor about a second behind your voice
+  and are replaced by the final, complete transcription when you stop.
 - **Works where you type.** Text fields that support Accessibility are edited in
   place. Editors and GPU-rendered terminals that don't receive the text as
   keystrokes instead.
@@ -36,7 +36,7 @@ model on Apple Silicon.
 - macOS 14 or newer on Apple Silicon. Intel Macs and Rosetta get a clear
   unsupported-hardware message instead of a crash.
 - Microphone access, and Accessibility access so Loqui can type at the cursor.
-- About 615 MB for the speech model. Packaged apps include it.
+- About 610 MB for the speech model. Packaged apps include it.
 - Xcode or the Command Line Tools with Swift 6, and Python 3.9+ for model setup.
 
 ## Getting started
@@ -110,13 +110,17 @@ from `LoquiCore`. A new backend is a module that implements both. Point
 
 ### Performance
 
-- Live drafts decode the recorder's in-memory 16 kHz samples. No snapshot file
-  is written or read per draft, and a pass is skipped while no new audio has
-  arrived.
+- The model streams each dictation. A draft decodes only the audio captured
+  since the last one, read from the recorder's memory, so drafts cost the same
+  in minute 1 as in second 1. When you stop, the final transcript flushes
+  the last second or so instead of decoding the whole recording again.
+- Only the first 2 seconds of a long pause are streamed. Parakeet's stream can
+  drop the words after a longer pause.
 - The verified model is re-checked on disk at most every 30 seconds rather than
   on every draft. The model manifest is decoded once.
-- Weights stay resident between recordings, and each pass decodes from a fresh
-  decoder state, so cancelling a draft cannot disturb the final transcription.
+- Weights stay resident between recordings. Drafts and the final flush run
+  strictly in order on one stream, and if a draft fails, the final transcript
+  streams the whole recording from a fresh state.
 - Device setup, cue playback, resampling, and disk writes run off the main
   thread. The level meter is polled only while recording, so it never
   re-renders the menu or Settings.

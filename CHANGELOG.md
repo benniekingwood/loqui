@@ -8,6 +8,27 @@ break existing setups or drop support, a **minor** bump for new features, and a
 [docs/RELEASING.md](docs/RELEASING.md#versions-and-the-changelog) for the
 workflow.
 
+## [1.3.0] - 2026-11-04
+
+### Changed
+
+- Live drafts stream. Each draft decodes only the audio since the last one,
+  instead of all the audio so far, so a long hands-free dictation no longer
+  gets slower to draft as it goes. Drafts trail your voice by about 1.1 s.
+- The final transcript continues the same stream, so after you release the key
+  it arrives in about 30 ms instead of about 90 ms, and the wait no longer
+  grows with the length of the dictation. On 20 dictation clips it was also
+  more accurate (7.7% word errors instead of 8.8%), writing "March 3rd at
+  2:30" and "Dr. Patel" where the whole-clip pass wrote "march third at 2.30"
+  and "doctor Patel". See
+  [#13](https://github.com/benniekingwood/loqui/issues/13) for the results.
+- Loqui streams only the first 2 seconds of a long pause. Without that cap,
+  Parakeet dropped the words after a 12-second pause, and a whole sentence
+  after a 30-second one.
+- The speech model's encoder is now the streaming encoder for the 1.12 s
+  setting. Run `./setup.sh` again to install it; the download is about the
+  same size (about 610 MB).
+
 ## [1.2.1] - 2026-11-04
 
 ### Added

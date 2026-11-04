@@ -7,10 +7,10 @@ package enum ParakeetModelContract {
     package static let modelName = "Parakeet Unified English 0.6B"
     package static let directoryName = "parakeet-unified-en-0.6b-coreml"
     package static let sdkVersion = "0.17.4"
-    /// The batch path's int8 encoder, decoder, and joint. Mel features are
-    /// computed in Swift, so the model ships no preprocessor.
+    /// The int8 streaming encoder for the 1.12 s tier, decoder, and joint. Mel
+    /// features are computed in Swift, so the model ships no preprocessor.
     package static let requiredComponents = [
-        "parakeet_unified_encoder_int8.mlmodelc",
+        "parakeet_unified_encoder_streaming_70_7_7_int8.mlmodelc",
         "parakeet_unified_decoder.mlmodelc",
         "parakeet_unified_joint_decision_single_step.mlmodelc",
     ]

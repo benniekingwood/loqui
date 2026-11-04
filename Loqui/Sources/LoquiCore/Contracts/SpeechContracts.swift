@@ -88,13 +88,30 @@ package protocol SpeechModelPreflighting: Sendable {
 package protocol SpeechTranscribing: Sendable {
     func transcribe(audioURL: URL) async -> TranscriptionOutcome
     func transcribe(samples: [Float]) async -> TranscriptionOutcome
+    /// Starts streaming a new dictation, ending any earlier stream. Returns nil
+    /// when the backend can only decode whole passes.
+    func beginStream() async -> (any SpeechStreaming)?
     func cancelActiveTranscriptions()
 }
 
 package extension SpeechTranscribing {
     /// Backends without an in-memory path produce no live drafts.
     func transcribe(samples: [Float]) async -> TranscriptionOutcome { .cancelled }
+    func beginStream() async -> (any SpeechStreaming)? { nil }
     func cancelActiveTranscriptions() {}
+}
+
+/// One dictation decoded as it is captured, so a draft costs only the audio
+/// since the last one and the final transcript needs only a short flush.
+package protocol SpeechStreaming: Sendable {
+    /// Decodes the samples not yet streamed and returns the draft so far.
+    /// `samples` is every 16 kHz mono sample captured since the dictation began.
+    func draft(from samples: [Float]) async -> TranscriptionOutcome
+    /// Streams whatever the drafts did not reach from the finished recording,
+    /// then returns the final transcript. Ends the stream.
+    func finish(audioURL: URL) async -> TranscriptionOutcome
+    /// Ends the stream without a transcript.
+    func cancel()
 }
 
 package enum TranscriptOutputClassifier {

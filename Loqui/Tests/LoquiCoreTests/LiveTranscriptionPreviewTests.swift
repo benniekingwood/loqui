@@ -5,7 +5,7 @@ import LoquiTestSupport
 
 @MainActor
 final class LiveTranscriptionPreviewTests: XCTestCase {
-    func testDraftsDecodeInMemorySamplesAndRepeatsAreNotRedelivered() async throws {
+    func testFullPassDraftsDecodeInMemorySamplesAndRepeatsAreNotRedelivered() async throws {
         let transcriber = PreviewTranscriberFake(drafts: ["ask", "ask not", "ask not"])
         let preview = LiveTranscriptionPreview(transcriber: transcriber)
         var captured = 0
@@ -18,7 +18,7 @@ final class LiveTranscriptionPreviewTests: XCTestCase {
         try await waitUntil { transcriber.sampleCounts.count >= 3 }
         await preview.stop()?.value
 
-        XCTAssertEqual(Array(transcriber.sampleCounts.prefix(3)), [8000, 16000, 24000], "Each draft is a full pass over the audio so far")
+        XCTAssertEqual(Array(transcriber.sampleCounts.prefix(3)), [8000, 16000, 24000], "Without a stream, each draft is a full pass over the audio so far")
         XCTAssertEqual(drafts, ["ask", "ask not"], "An unchanged draft must not retype text at the cursor")
     }
 
@@ -108,6 +108,65 @@ final class LiveTranscriptionPreviewTests: XCTestCase {
         transcriber.openGate()
     }
 
+    func testAStreamingBackendDecodesEveryNewSliceAndSkipsFullPasses() async throws {
+        let transcriber = StreamingTranscriberFake(drafts: ["ask", "ask not"])
+        let preview = LiveTranscriptionPreview(transcriber: transcriber)
+        var captured = 0
+        var drafts: [String] = []
+        preview.start(interval: 0.1, samples: {
+            captured += 1600
+            return Array(repeating: 0, count: captured)
+        }, receiveTranscript: { drafts.append($0) })
+
+        try await waitUntil { transcriber.stream.draftCounts.count >= 2 }
+        await preview.stop()?.value
+
+        XCTAssertEqual(Array(transcriber.stream.draftCounts.prefix(2)), [1600, 3200], "A stream needs no minimum before its first draft")
+        XCTAssertEqual(drafts, ["ask", "ask not"])
+        XCTAssertEqual(transcriber.fullPassCount, 0, "A streaming backend must not re-decode the whole dictation")
+        XCTAssertNotNil(preview.takeStream(), "Stopping the drafts keeps the stream for the final pass")
+        XCTAssertNil(preview.takeStream(), "The stream is handed over once")
+        XCTAssertEqual(transcriber.stream.cancelCount, 0)
+    }
+
+    func testCleanupEndsTheStream() async throws {
+        let transcriber = StreamingTranscriberFake(drafts: [])
+        let preview = LiveTranscriptionPreview(transcriber: transcriber)
+        preview.start(interval: 0.1, samples: { Array(repeating: 0, count: 1600) }, receiveTranscript: { _ in })
+        try await waitUntil { transcriber.stream.draftCounts.count == 1 }
+
+        preview.cleanup()
+
+        XCTAssertEqual(transcriber.stream.cancelCount, 1)
+        XCTAssertNil(preview.takeStream())
+    }
+
+    func testTheFinalTranscriptFinishesTheDictationsStream() async throws {
+        let recorder = EngineRecorderFake()
+        let transcriber = StreamingTranscriberFake(drafts: ["draft"])
+        let engine = TranscriptionEngine(
+            permissionProvider: EnginePermissionFake(),
+            recorderFactory: EngineRecorderFactoryFake(recorders: [recorder]),
+            recordingReadyCue: EngineReadyCueFake(),
+            recordingStoppedCue: EngineStoppedCueFake(),
+            recordingFileStore: EngineFileStoreFake(),
+            dependencyPreflight: EnginePreflightFake(),
+            transcriber: transcriber,
+            textDelivery: EngineDeliveryFake(),
+            livePreviewInterval: 0.1,
+            performStartupCleanup: false
+        )
+        defer { engine.cleanup() }
+        engine.startRecording()
+        try await waitUntil { transcriber.stream.draftCounts.count == 1 }
+
+        engine.stopRecording()
+        try await waitUntil { engine.state == .idle }
+
+        XCTAssertEqual(transcriber.stream.finishCount, 1)
+        XCTAssertEqual(transcriber.fullPassCount, 0, "The final pass must continue the stream, not start over")
+    }
+
     private func waitUntil(_ condition: @MainActor () -> Bool) async throws {
         for _ in 0..<300 {
             if condition() { return }
@@ -159,5 +218,63 @@ private final class PreviewTranscriberFake: SpeechTranscribing, @unchecked Senda
             }
         }
         return lock.withLock { drafts.isEmpty ? .noSpeech : .success(drafts.removeFirst()) }
+    }
+}
+
+/// A streaming backend whose one stream answers drafts in order. Full passes
+/// are only counted.
+private final class StreamingTranscriberFake: SpeechTranscribing, @unchecked Sendable {
+    let stream: StreamFake
+    private let lock = NSLock()
+    private var fullPasses = 0
+
+    init(drafts: [String]) {
+        stream = StreamFake(drafts: drafts)
+    }
+
+    var fullPassCount: Int { lock.withLock { fullPasses } }
+
+    func transcribe(audioURL: URL) async -> TranscriptionOutcome {
+        lock.withLock { fullPasses += 1 }
+        return .noSpeech
+    }
+
+    func transcribe(samples: [Float]) async -> TranscriptionOutcome {
+        lock.withLock { fullPasses += 1 }
+        return .noSpeech
+    }
+
+    func beginStream() async -> (any SpeechStreaming)? { stream }
+}
+
+private final class StreamFake: SpeechStreaming, @unchecked Sendable {
+    private let lock = NSLock()
+    private var drafts: [String]
+    private var counts: [Int] = []
+    private var finishes = 0
+    private var cancels = 0
+
+    init(drafts: [String]) {
+        self.drafts = drafts
+    }
+
+    var draftCounts: [Int] { lock.withLock { counts } }
+    var finishCount: Int { lock.withLock { finishes } }
+    var cancelCount: Int { lock.withLock { cancels } }
+
+    func draft(from samples: [Float]) async -> TranscriptionOutcome {
+        lock.withLock {
+            counts.append(samples.count)
+            return drafts.isEmpty ? .noSpeech : .success(drafts.removeFirst())
+        }
+    }
+
+    func finish(audioURL: URL) async -> TranscriptionOutcome {
+        lock.withLock { finishes += 1 }
+        return .noSpeech
+    }
+
+    func cancel() {
+        lock.withLock { cancels += 1 }
     }
 }
