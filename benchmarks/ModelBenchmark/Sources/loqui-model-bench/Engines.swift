@@ -11,6 +11,12 @@ enum BenchmarkModel: String, Codable, CaseIterable {
     /// Parakeet Unified English 0.6B fed in 100 ms chunks like live audio, at
     /// the default 2.08 s latency tier (issue #13).
     case unifiedStream = "unified-stream"
+    /// Streaming at the 1.12 s tier: drafts trail speech by half as much.
+    case unifiedStream1120 = "unified-stream-1120ms"
+    /// Streaming at the 0.32 s tier, the fastest export.
+    case unifiedStream320 = "unified-stream-320ms"
+
+    var isStreaming: Bool { self != .v2 && self != .unified }
 
     func makeEngine(modelDirectory: URL?) throws -> any SpeechEngine {
         switch self {
@@ -28,7 +34,11 @@ enum BenchmarkModel: String, Codable, CaseIterable {
         case .unified:
             return UnifiedBatchEngine()
         case .unifiedStream:
-            return UnifiedStreamEngine()
+            return UnifiedStreamEngine(config: UnifiedConfig())
+        case .unifiedStream1120:
+            return UnifiedStreamEngine(config: UnifiedConfig(leftFrames: 70, chunkFrames: 7, rightFrames: 7))
+        case .unifiedStream320:
+            return UnifiedStreamEngine(config: UnifiedConfig(leftFrames: 70, chunkFrames: 2, rightFrames: 2))
         }
     }
 
@@ -49,6 +59,19 @@ protocol SpeechEngine: AnyObject {
     /// Loads the model and returns the seconds it took.
     func load() async throws -> TimeInterval
     func transcribe(_ samples: [Float]) async throws -> String
+    /// Transcribes as `transcribe` does and also returns the milliseconds
+    /// between the end of the audio and the final text: the wait after the
+    /// key is released.
+    func transcribeTimingRelease(_ samples: [Float]) async throws -> (text: String, releaseMs: Double)
+}
+
+extension SpeechEngine {
+    /// A batch model starts only once the audio ends, so the whole pass is the wait.
+    func transcribeTimingRelease(_ samples: [Float]) async throws -> (text: String, releaseMs: Double) {
+        let start = Date()
+        let text = try await transcribe(samples)
+        return (text, Date().timeIntervalSince(start) * 1000)
+    }
 }
 
 final class ParakeetV2Engine: SpeechEngine {
@@ -93,8 +116,11 @@ final class UnifiedBatchEngine: SpeechEngine {
 }
 
 final class UnifiedStreamEngine: SpeechEngine {
-    private let manager = StreamingUnifiedAsrManager()
+    private let manager: StreamingUnifiedAsrManager
     private static let chunkSamples = 1600
+
+    /// Each latency tier is its own encoder of about 580 MB, downloaded on first use.
+    init(config: UnifiedConfig) { manager = StreamingUnifiedAsrManager(config: config) }
 
     func load() async throws -> TimeInterval {
         let start = Date()
@@ -103,6 +129,20 @@ final class UnifiedStreamEngine: SpeechEngine {
     }
 
     func transcribe(_ samples: [Float]) async throws -> String {
+        try await stream(samples)
+        return try await manager.finish()
+    }
+
+    /// Streams the clip the way live audio arrives, then times only `finish()`,
+    /// which is all that's left to do when the key is released.
+    func transcribeTimingRelease(_ samples: [Float]) async throws -> (text: String, releaseMs: Double) {
+        try await stream(samples)
+        let start = Date()
+        let text = try await manager.finish()
+        return (text, Date().timeIntervalSince(start) * 1000)
+    }
+
+    private func stream(_ samples: [Float]) async throws {
         try await manager.reset()
         var offset = 0
         while offset < samples.count {
@@ -111,7 +151,6 @@ final class UnifiedStreamEngine: SpeechEngine {
             try await manager.processBufferedAudio()
             offset = end
         }
-        return try await manager.finish()
     }
 
     private static func buffer(for chunk: ArraySlice<Float>) throws -> AVAudioPCMBuffer {

@@ -9,7 +9,9 @@ does, and reports accuracy, latency, load time, and memory.
 |---|---|
 | `v2` | Parakeet TDT 0.6B v2, what Loqui shipped before 1.1.0. Read from `models/` if an older setup left it there, or downloaded (about 450 MB) on first use. |
 | `unified` | Parakeet Unified English 0.6B, whole clip at once, what Loqui ships today. Downloads about 600 MB on first use. |
-| `unified-stream` | The same model fed in 100 ms chunks like live audio ([#13](https://github.com/benniekingwood/loqui/issues/13)). Its encoder is a second download of about 580 MB. |
+| `unified-stream` | The same model fed in 100 ms chunks like live audio ([#13](https://github.com/benniekingwood/loqui/issues/13)). Its encoder is a second download of about 580 MB. Drafts trail speech by about 2.08 s. |
+| `unified-stream-1120ms` | Streaming at the 1.12 s tier. Another encoder of about 580 MB. |
+| `unified-stream-320ms` | Streaming at the 0.32 s tier, the fastest. Another encoder of about 580 MB. |
 
 The benchmark is a separate Swift package and isn't part of the app.
 
@@ -64,6 +66,10 @@ It prints a Markdown table and saves it, with the raw JSON, to
   counts missing punctuation, wrong capitals, and "2.30" for "2:30".
 - **Median clip** and **p95 clip** are warm transcription times after a
   warm-up pass. **First pass** is the first transcription after loading.
+- **Median after release** and **p95 after release** are the wait between the
+  end of the audio and the final text. A batch model does all its work then,
+  so they match the clip times. Unified streaming decodes while you speak, so
+  only its final flush counts.
 - **Load** is loading an already-compiled model. **Peak memory** is the
   benchmark process's peak resident memory.
 

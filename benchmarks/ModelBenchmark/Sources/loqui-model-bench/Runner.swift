@@ -13,6 +13,9 @@ struct ClipResult: Codable {
     let formattedErrors: Int
     let referenceWords: Int
     let latenciesMs: [Double]
+    /// Wait after the audio ends for each pass. Missing from results saved
+    /// before it was measured.
+    let releaseMs: [Double]?
 }
 
 struct RunResult: Codable {
@@ -46,11 +49,14 @@ enum Runner {
         var results: [ClipResult] = []
         for clip in clips {
             var latencies: [Double] = []
+            var releases: [Double] = []
             var transcript = ""
             for _ in 0 ..< max(1, passes) {
                 let start = Date()
-                transcript = try await engine.transcribe(clip.samples)
+                let pass = try await engine.transcribeTimingRelease(clip.samples)
                 latencies.append(Date().timeIntervalSince(start) * 1000)
+                releases.append(pass.releaseMs)
+                transcript = pass.text
             }
             transcript = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
             let reference = WordErrorRate.normalizedWords(clip.reference)
@@ -63,7 +69,8 @@ enum Runner {
                     wordErrors: WordErrorRate.edits(reference, WordErrorRate.normalizedWords(transcript)),
                     formattedErrors: WordErrorRate.edits(WordErrorRate.formattedWords(clip.reference), WordErrorRate.formattedWords(transcript)),
                     referenceWords: reference.count,
-                    latenciesMs: latencies
+                    latenciesMs: latencies,
+                    releaseMs: releases
                 )
             )
             FileHandle.standardError.write(Data("  \(clip.id): \(Int(latencies.sorted()[latencies.count / 2])) ms\n".utf8))
