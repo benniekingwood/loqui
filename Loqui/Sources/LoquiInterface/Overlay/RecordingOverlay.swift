@@ -1,6 +1,7 @@
 import AppKit
 import Combine
 import SwiftUI
+import LoquiAudio
 import LoquiCore
 
 /// What the floating indicator shows for each engine state. It appears as soon
@@ -35,6 +36,28 @@ package enum RecordingOverlayPreference {
     }
 }
 
+/// Decides when the indicator names the microphone: on the first dictation
+/// since launch, when the input device changed since the last dictation, and
+/// after a long quiet stretch, when the system default may have moved without
+/// anyone noticing. Naming it every time would just be noise.
+package struct InputDeviceAnnouncer {
+    package static let quietInterval: TimeInterval = 30 * 60
+
+    private var lastDeviceUID: String?
+    private var lastDictation: Date?
+
+    package init() {}
+
+    package mutating func shouldAnnounce(deviceUID: String, at now: Date) -> Bool {
+        defer {
+            lastDeviceUID = deviceUID
+            lastDictation = now
+        }
+        guard let lastDeviceUID, let lastDictation else { return true }
+        return deviceUID != lastDeviceUID || now.timeIntervalSince(lastDictation) >= Self.quietInterval
+    }
+}
+
 /// Rolling input levels for the bars. The newest level sits in the middle and
 /// older ones move outward, so speech ripples symmetrically from the center.
 @MainActor
@@ -42,6 +65,8 @@ package final class RecordingOverlayModel: ObservableObject {
     package static let barCount = 11
 
     @Published package var phase: RecordingOverlayPhase = .hidden
+    /// The microphone named above the bars, or nil when no label shows.
+    @Published package var inputDeviceName: String?
     @Published package private(set) var levels: [CGFloat] = Array(repeating: 0, count: RecordingOverlayModel.barCount)
 
     private var history: [CGFloat] = Array(repeating: 0, count: RecordingOverlayModel.barCount / 2 + 1)
@@ -138,35 +163,87 @@ package struct RecordingOverlayView: View {
     }
 }
 
+/// The microphone's name in a small capsule above the bars.
+struct InputDeviceLabel: View {
+    let name: String
+
+    var body: some View {
+        Label(name, systemImage: "mic.fill")
+            .font(.system(size: 12, weight: .medium))
+            .foregroundStyle(.white.opacity(0.92))
+            .lineLimit(1)
+            .truncationMode(.middle)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(
+                Capsule()
+                    .fill(LoquiBrand.ground.opacity(0.94))
+                    .overlay(Capsule().strokeBorder(.white.opacity(0.14), lineWidth: 1))
+            )
+            .frame(maxWidth: 320)
+            .accessibilityLabel("Recording from \(name)")
+    }
+}
+
+/// The bars, with the microphone's name above them while it is announced. The
+/// bars stay pinned to the bottom so the label never moves them.
+struct RecordingOverlayStack: View {
+    @ObservedObject var model: RecordingOverlayModel
+
+    var body: some View {
+        VStack(spacing: 8) {
+            if let name = model.inputDeviceName {
+                InputDeviceLabel(name: name)
+                    .transition(.opacity.combined(with: .offset(y: 6)))
+            }
+            RecordingOverlayView(model: model)
+        }
+        .animation(.easeOut(duration: 0.2), value: model.inputDeviceName)
+        .shadow(color: .black.opacity(0.35), radius: 8, y: 3)
+        .padding(.bottom, 14)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+    }
+}
+
 /// Shows the indicator in a click-through panel above every app and Space,
 /// centered just above the Dock on the screen the pointer is on.
 @MainActor
 package final class RecordingOverlayController {
-    private static let panelSize = NSSize(width: 160, height: 64)
+    /// Wide and tall enough for the microphone label; the panel is transparent
+    /// and click-through, so the spare room is invisible.
+    private static let panelSize = NSSize(width: 360, height: 104)
+    /// How long the microphone label stays once listening starts.
+    package static let inputDeviceLabelDuration: Duration = .seconds(2)
 
     private let phases: AnyPublisher<RecordingOverlayPhase, Never>
     private let inputLevel: @MainActor () -> Float
-    private let model = RecordingOverlayModel()
+    private let inputDevice: @MainActor () -> AudioInputDevice?
+    let model = RecordingOverlayModel()
+    private var announcer = InputDeviceAnnouncer()
     private var panel: NSPanel?
     private var stateObservation: AnyCancellable?
     private var levelTimer: Timer?
+    private var labelDismissal: Task<Void, Never>?
 
-    package convenience init(engine: TranscriptionEngine) {
+    package convenience init(engine: TranscriptionEngine, inputDevices: any AudioInputResolving) {
         self.init(
             phases: engine.$state
                 .combineLatest(engine.$isDictating)
                 .map { RecordingOverlayPhase($0, isDictating: $1) }
                 .eraseToAnyPublisher(),
-            inputLevel: { [weak engine] in engine?.takeInputLevel() ?? 0 }
+            inputLevel: { [weak engine] in engine?.takeInputLevel() ?? 0 },
+            inputDevice: { [weak inputDevices] in inputDevices?.resolveInputDevice() }
         )
     }
 
     package init(
         phases: AnyPublisher<RecordingOverlayPhase, Never>,
-        inputLevel: @escaping @MainActor () -> Float
+        inputLevel: @escaping @MainActor () -> Float,
+        inputDevice: @escaping @MainActor () -> AudioInputDevice? = { nil }
     ) {
         self.phases = phases
         self.inputLevel = inputLevel
+        self.inputDevice = inputDevice
     }
 
     package func start() {
@@ -193,13 +270,44 @@ package final class RecordingOverlayController {
         if visible {
             if model.phase == .hidden {
                 model.reset()
+                announceInputDevice()
+            }
+            if phase == .listening {
+                scheduleLabelDismissal()
             }
             model.phase = phase
             show()
         } else {
             model.phase = .hidden
+            dismissLabel()
             hide()
         }
+    }
+
+    /// Names the microphone a new dictation is about to open, when the
+    /// announcer says it is worth showing.
+    private func announceInputDevice() {
+        dismissLabel()
+        guard let device = inputDevice(),
+              announcer.shouldAnnounce(deviceUID: device.uid, at: .now) else { return }
+        model.inputDeviceName = device.name
+    }
+
+    /// The label stays through arming and for a moment of listening, so it is
+    /// still there when the speaker starts talking.
+    private func scheduleLabelDismissal() {
+        guard model.inputDeviceName != nil, labelDismissal == nil else { return }
+        labelDismissal = Task { [weak self] in
+            try? await Task.sleep(for: Self.inputDeviceLabelDuration)
+            guard !Task.isCancelled else { return }
+            self?.model.inputDeviceName = nil
+        }
+    }
+
+    private func dismissLabel() {
+        labelDismissal?.cancel()
+        labelDismissal = nil
+        model.inputDeviceName = nil
     }
 
     private func show() {
@@ -243,10 +351,7 @@ package final class RecordingOverlayController {
         )
         FloatingPanel.configure(panel)
         panel.ignoresMouseEvents = true
-        let content = RecordingOverlayView(model: model)
-            .shadow(color: .black.opacity(0.35), radius: 8, y: 3)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-        panel.contentView = NSHostingView(rootView: content)
+        panel.contentView = NSHostingView(rootView: RecordingOverlayStack(model: model))
         return panel
     }
 

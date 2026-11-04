@@ -12,7 +12,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let audioInputSelection: AudioInputSelection
     private var engineStateObservation: AnyCancellable?
     private var shortcutObservation: AnyCancellable?
-    private lazy var recordingOverlay = RecordingOverlayController(engine: transcriptionEngine)
+    private lazy var recordingOverlay = RecordingOverlayController(
+        engine: transcriptionEngine,
+        inputDevices: audioInputSelection
+    )
     private lazy var transcriptCard = TranscriptCardController(engine: transcriptionEngine)
     private lazy var settingsWindowController = SettingsWindowController(
         transcriptionEngine: transcriptionEngine,
