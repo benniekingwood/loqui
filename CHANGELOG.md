@@ -8,6 +8,16 @@ break existing setups or drop support, a **minor** bump for new features, and a
 [docs/RELEASING.md](docs/RELEASING.md#versions-and-the-changelog) for the
 workflow.
 
+## [1.4.0] - 2026-11-04
+
+### Added
+
+- The recording indicator names the microphone above its bars for about two
+  seconds after listening starts, so a dictation into the wrong microphone is
+  caught before you speak. It shows on the first dictation after launch, when
+  the input device changed since the last dictation, and after 30 minutes
+  without dictating.
+
 ## [1.3.0] - 2026-11-04
 
 ### Changed

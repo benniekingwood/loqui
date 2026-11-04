@@ -20,7 +20,9 @@ model on Apple Silicon.
   place. Editors and GPU-rendered terminals that don't receive the text as
   keystrokes instead.
 - **Recording indicator.** A small pill in Loqui's Spectrum colors floats above
-  the Dock while Loqui listens, following your voice level.
+  the Dock while Loqui listens, following your voice level. On the first
+  dictation after launch, after the microphone changes, or after a half hour
+  away, it names the microphone above the bars for a moment.
 - **Cleaner text.** Filler words like "um" and "uh" are removed. Turn on
   spoken formatting to say "new line", "new paragraph", "open quote", or
   "close quote" and get the formatting instead of the words.

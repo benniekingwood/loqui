@@ -1,6 +1,8 @@
 import AppKit
+import Combine
 import SwiftUI
 import XCTest
+@testable import LoquiAudio
 @testable import LoquiCore
 @testable import LoquiInterface
 
@@ -52,6 +54,62 @@ final class RecordingOverlayTests: XCTestCase {
         XCTAssertEqual(model.levels[center], 0.7, accuracy: 0.001)
         model.reset()
         XCTAssertTrue(model.levels.allSatisfy { $0 == 0 })
+    }
+
+    func testTheMicrophoneIsAnnouncedFirstOnChangeAndAfterAQuietStretch() {
+        var announcer = InputDeviceAnnouncer()
+        let start = Date(timeIntervalSinceReferenceDate: 0)
+
+        XCTAssertTrue(announcer.shouldAnnounce(deviceUID: "built-in", at: start))
+        XCTAssertFalse(announcer.shouldAnnounce(deviceUID: "built-in", at: start + 60))
+        XCTAssertTrue(announcer.shouldAnnounce(deviceUID: "airpods", at: start + 120))
+        XCTAssertFalse(announcer.shouldAnnounce(deviceUID: "airpods", at: start + 180))
+        XCTAssertTrue(announcer.shouldAnnounce(
+            deviceUID: "airpods",
+            at: start + 180 + InputDeviceAnnouncer.quietInterval
+        ))
+    }
+
+    func testTheLabelShowsForANewDictationAndClearsWhenTheIndicatorHides() {
+        let phases = PassthroughSubject<RecordingOverlayPhase, Never>()
+        let device = AudioInputDevice(uid: "built-in", name: "MacBook Pro Microphone", deviceID: 1)
+        let controller = RecordingOverlayController(
+            phases: phases.eraseToAnyPublisher(),
+            inputLevel: { 0 },
+            inputDevice: { device }
+        )
+        controller.start()
+        defer { controller.stop() }
+
+        phases.send(.arming)
+        XCTAssertEqual(controller.model.inputDeviceName, "MacBook Pro Microphone")
+        phases.send(.listening)
+        XCTAssertEqual(controller.model.inputDeviceName, "MacBook Pro Microphone")
+        phases.send(.hidden)
+        XCTAssertNil(controller.model.inputDeviceName)
+
+        // The same microphone moments later is not worth naming again.
+        phases.send(.arming)
+        XCTAssertNil(controller.model.inputDeviceName)
+    }
+
+    func testTheLabelLeavesShortlyAfterListeningStarts() async throws {
+        let phases = PassthroughSubject<RecordingOverlayPhase, Never>()
+        let device = AudioInputDevice(uid: "built-in", name: "MacBook Pro Microphone", deviceID: 1)
+        let controller = RecordingOverlayController(
+            phases: phases.eraseToAnyPublisher(),
+            inputLevel: { 0 },
+            inputDevice: { device }
+        )
+        controller.start()
+        defer { controller.stop() }
+
+        phases.send(.arming)
+        phases.send(.listening)
+        try await Task.sleep(for: RecordingOverlayController.inputDeviceLabelDuration + .milliseconds(300))
+
+        XCTAssertNil(controller.model.inputDeviceName)
+        XCTAssertEqual(controller.model.phase, .listening)
     }
 
     func testIndicatorIsOnByDefault() throws {
