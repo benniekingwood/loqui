@@ -8,6 +8,21 @@ break existing setups or drop support, a **minor** bump for new features, and a
 [docs/RELEASING.md](docs/RELEASING.md#versions-and-the-changelog) for the
 workflow.
 
+## [1.5.0] - 2026-11-04
+
+### Changed
+
+- Any key can be the dictation key. Settings no longer refuses Left Control,
+  Left Option, Left Command, either Shift, or ordinary keys. A modifier keeps
+  working as a modifier. An ordinary key such as F13 or a letter no longer
+  types on its own while it is the dictation key, but still works with
+  Command, Control, or Option. Only Escape, which cancels, and Caps Lock, whose
+  release macOS doesn't report, can't be chosen.
+- Pressing another key while the dictation key is down, before recording
+  starts, makes it a shortcut instead of a dictation. A left-hand modifier can
+  then be the dictation key without Control-C or Command-S starting
+  recordings.
+
 ## [1.4.0] - 2026-11-04
 
 ### Added

@@ -40,6 +40,14 @@ package struct SettingsView: View {
                     Text("Double-tap \(hotKeyController.shortcut.key.displayName) to start. Tap it again to stop.")
                 }
 
+                if !hotKeyController.shortcut.key.isModifier {
+                    Label(
+                        "\(hotKeyController.shortcut.key.displayName) no longer types on its own. With ⌘, ⌃, or ⌥ it works as usual.",
+                        systemImage: "info.circle"
+                    )
+                    .foregroundStyle(.secondary)
+                }
+
                 if hotKeyController.shortcut.key == .function {
                     Label(
                         "So macOS doesn’t also react to the Globe key, set Keyboard › “Press 🌐 key to” to “Do Nothing” in System Settings.",
@@ -159,7 +167,7 @@ private struct ShortcutField: View {
     var body: some View {
         HStack(spacing: 8) {
             if recorder.isRecording {
-                Text("Press a modifier key…")
+                Text("Press any key… (Esc cancels)")
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 4)
@@ -181,7 +189,9 @@ private struct KeyCap: View {
 
     var body: some View {
         HStack(spacing: 5) {
-            Text(key.symbol)
+            if let symbol = key.symbol {
+                Text(symbol)
+            }
             Text(key.displayName)
         }
         .fontWeight(.medium)

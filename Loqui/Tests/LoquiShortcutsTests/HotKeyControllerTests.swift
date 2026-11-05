@@ -60,6 +60,67 @@ final class HotKeyControllerTests: XCTestCase {
         }
     }
 
+    func testChordBeforeHoldThresholdDoesNotRecord() {
+        let harness = Harness(start: 10)
+        harness.controller.update(DictationShortcut(key: .leftControl, doubleTapLocks: true))
+
+        harness.service.send(.pressed)
+        harness.service.send(.interrupted)
+        harness.timer.fire()
+        harness.service.send(.released)
+        harness.service.send(.pressed)
+        harness.timer.fire()
+
+        XCTAssertEqual(harness.intents, [.start], "A chord neither records nor counts as the first tap")
+    }
+
+    func testOtherKeysDoNotStopAStartedRecording() {
+        let harness = Harness(start: 10)
+        harness.service.send(.pressed)
+        harness.timer.fire()
+        harness.service.send(.interrupted)
+        XCTAssertEqual(harness.intents, [.start])
+        harness.service.send(.released)
+        XCTAssertEqual(harness.intents, [.start, .stop])
+    }
+
+    func testModifierContextReportsOneInterruptionPerPress() async {
+        var phases: [DictationKeyPhase] = []
+        let context = DictationKeyMonitorContext(key: .leftControl) { phases.append($0) }
+        context.handleKeyDown()
+        let leftControl = NSEvent.ModifierFlags(rawValue: NSEvent.ModifierFlags.control.rawValue | 0x01)
+        context.handle(keyCode: 0x3B, modifierFlags: leftControl)
+        context.handleKeyDown()
+        context.handleKeyDown()
+        context.handle(keyCode: 0x3B, modifierFlags: [])
+        await drainMainQueue()
+        XCTAssertEqual(phases, [.pressed, .interrupted, .released])
+    }
+
+    func testTapContextConsumesTheDictationKeyAndItsRepeats() async {
+        var phases: [DictationKeyPhase] = []
+        let context = DictationKeyTapContext(key: DictationKey(keyCode: 0x69)) { phases.append($0) }
+        XCTAssertTrue(context.handle(keyCode: 0x69, isKeyDown: true, isRepeat: false, flags: []))
+        XCTAssertTrue(context.handle(keyCode: 0x69, isKeyDown: true, isRepeat: true, flags: []))
+        XCTAssertFalse(context.handle(keyCode: 0x00, isKeyDown: true, isRepeat: false, flags: []), "Other keys still type")
+        XCTAssertFalse(context.handle(keyCode: 0x00, isKeyDown: false, isRepeat: false, flags: []))
+        XCTAssertTrue(context.handle(keyCode: 0x69, isKeyDown: false, isRepeat: false, flags: []))
+        XCTAssertFalse(context.handle(keyCode: 0x69, isKeyDown: false, isRepeat: false, flags: []), "A stray release passes")
+        await drainMainQueue()
+        XCTAssertEqual(phases, [.pressed, .interrupted, .released])
+    }
+
+    func testTapContextPassesTheKeyThroughInShortcuts() async {
+        var phases: [DictationKeyPhase] = []
+        let context = DictationKeyTapContext(key: DictationKey(keyCode: 0x09)) { phases.append($0) }
+        XCTAssertFalse(context.handle(keyCode: 0x09, isKeyDown: true, isRepeat: false, flags: .maskCommand), "Command-V still pastes")
+        XCTAssertFalse(context.handle(keyCode: 0x09, isKeyDown: true, isRepeat: true, flags: .maskCommand))
+        XCTAssertFalse(context.handle(keyCode: 0x09, isKeyDown: false, isRepeat: false, flags: []))
+        XCTAssertTrue(context.handle(keyCode: 0x09, isKeyDown: true, isRepeat: false, flags: .maskShift))
+        await drainMainQueue()
+        XCTAssertEqual(phases, [.pressed])
+    }
+
     func testSingleTapDoesNothing() {
         let harness = Harness(start: 10)
 

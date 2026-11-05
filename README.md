@@ -28,8 +28,9 @@ model on Apple Silicon.
   "close quote" and get the formatting instead of the words.
 - **Transcript card.** If nothing editable has focus, Loqui doesn't type into
   the void. It shows your words in a card with a Copy button.
-- **Settings.** Choose the dictation key (Right Option, Right Command, Right
-  Control, or Fn), toggle hands-free mode, pick the microphone, turn sound
+- **Settings.** Choose any key as the dictation key: any modifier, left or
+  right, Fn, or an ordinary key such as F13 (Loqui takes over an ordinary key so
+  holding it doesn't type). Toggle hands-free mode, pick the microphone, turn sound
   cues and the indicator on or off, and choose how transcripts are cleaned up. Open Settings from the menu bar icon, with
   ⌘, or by clicking Loqui in the Dock.
 
