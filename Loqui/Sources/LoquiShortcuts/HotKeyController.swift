@@ -217,10 +217,14 @@ package final class HotKeyController: ObservableObject {
         }) {
         case .success:
             availability = .registered
-            hotKeyLogger.notice("Global dictation-key recording monitor registered; key: \(key.displayName, privacy: .public); key code: \(key.keyCode, privacy: .public)")
+            hotKeyLogger.notice(
+                "Global dictation-key recording monitor registered; key: \(key.displayName, privacy: .public); key code: \(key.keyCode, privacy: .public)"
+            )
         case .failure(.monitorRegistrationFailed):
             availability = .monitorRegistrationFailed
-            hotKeyLogger.error("Global dictation-key recording monitor registration failed; key: \(key.displayName, privacy: .public); key code: \(key.keyCode, privacy: .public)")
+            hotKeyLogger.error(
+                "Global dictation-key recording monitor registration failed; key: \(key.displayName, privacy: .public); key code: \(key.keyCode, privacy: .public)"
+            )
         }
     }
 
