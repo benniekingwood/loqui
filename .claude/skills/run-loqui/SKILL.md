@@ -48,7 +48,7 @@ A healthy `launch` prints:
 pid 93757
 menu bar icon: window 54332 exists but is OFF-SCREEN (menu bar full / hidden behind the notch)
 waiting for model (up to 90s)...
-hotkey: rightOption monitor registered
+hotkey: Right Option monitor registered
 model: Parakeet Unified English 0.6B ready
 ```
 

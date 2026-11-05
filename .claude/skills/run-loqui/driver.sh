@@ -112,7 +112,7 @@ cmd_launch() {
         grep -qE 'Speech model (ready|preflight failed)' <<<"$logs" && break
     done
     if grep -q "recording monitor registered" <<<"$logs"; then
-        echo "hotkey: $(grep -o "monitor registered; key: [A-Za-z]*" <<<"$logs" | tail -1 | sed "s/.*key: //") monitor registered"
+        echo "hotkey: $(grep -o "monitor registered; key: [^;]*" <<<"$logs" | tail -1 | sed "s/.*key: //") monitor registered"
     else
         echo "hotkey: monitor NOT registered (see: $0 logs)"
     fi

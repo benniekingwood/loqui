@@ -37,19 +37,38 @@ final class DictationShortcutTests: XCTestCase {
         XCTAssertEqual(store.load(), shortcut)
     }
 
+    func testStoreRoundTripsAnyKeyWithItsCapturedName() {
+        let store = DictationShortcutStore(defaultsSuiteName: suiteName)
+
+        store.save(DictationShortcut(key: .leftControl, doubleTapLocks: true))
+        XCTAssertEqual(store.load().key.displayName, "Left Control")
+
+        store.save(DictationShortcut(key: DictationKey(keyCode: 0x0C, name: "a"), doubleTapLocks: true))
+        XCTAssertEqual(store.load().key, DictationKey(keyCode: 0x0C))
+        XCTAssertEqual(store.load().key.displayName, "A", "The captured layout name survives a relaunch")
+    }
+
     func testStoreFallsBackToDefaultForMissingOrUnknownValues() {
         let store = DictationShortcutStore(defaultsSuiteName: suiteName)
         XCTAssertEqual(store.load(), .default)
 
-        UserDefaults(suiteName: suiteName)?.set("leftShift", forKey: DictationShortcutStore.keyDefaultsKey)
+        UserDefaults(suiteName: suiteName)?.set("leftShift", forKey: DictationShortcutStore.legacyKeyDefaultsKey)
+        XCTAssertEqual(store.load(), .default)
+
+        UserDefaults(suiteName: suiteName)?.set(-1, forKey: DictationShortcutStore.keyCodeDefaultsKey)
         XCTAssertEqual(store.load(), .default)
     }
 
-    func testKeysMapFromTheirKeyCodes() {
-        for key in DictationKey.allCases {
-            XCTAssertEqual(DictationKey(keyCode: key.keyCode), key)
-        }
-        XCTAssertNil(DictationKey(keyCode: 0x3A), "Left Option is not offered")
+    func testStoreReadsKeysSavedBeforeAnyKeySupport() {
+        let store = DictationShortcutStore(defaultsSuiteName: suiteName)
+        UserDefaults(suiteName: suiteName)?.set("rightControl", forKey: DictationShortcutStore.legacyKeyDefaultsKey)
+
+        XCTAssertEqual(store.load().key, .rightControl)
+    }
+
+    func testKeysAreIdentifiedByKeyCodeAlone() {
+        XCTAssertEqual(DictationKey(keyCode: 0x3B), .leftControl)
+        XCTAssertEqual(DictationKey(keyCode: 0x00, name: "q"), DictationKey(keyCode: 0x00))
     }
 
     @MainActor
@@ -72,8 +91,31 @@ final class DictationKeyModelTests: XCTestCase {
         XCTAssertFalse(DictationKey.function.isDown(modifierFlags: 0))
     }
 
-    func testEveryKeyHasADistinctKeyCodeAndLabel() {
-        XCTAssertEqual(Set(DictationKey.allCases.map(\.keyCode)).count, DictationKey.allCases.count)
-        XCTAssertEqual(Set(DictationKey.allCases.map(\.displayName)).count, DictationKey.allCases.count)
+    func testLeftModifiersUseTheirOwnDeviceBits() {
+        XCTAssertTrue(DictationKey.leftControl.isDown(modifierFlags: 0x40000 | 0x01))
+        XCTAssertFalse(DictationKey.leftControl.isDown(modifierFlags: 0x40000 | 0x2000), "Right Control alone is not Left Control")
+        XCTAssertTrue(DictationKey.leftCommand.isDown(modifierFlags: 0x100000 | 0x08))
+        XCTAssertTrue(DictationKey.leftShift.isDown(modifierFlags: 0x20000 | 0x02))
+        XCTAssertTrue(DictationKey.rightShift.isDown(modifierFlags: 0x20000 | 0x04))
+    }
+
+    func testEveryModifierHasADistinctKeyCodeAndLabel() {
+        let modifiers: [DictationKey] = [
+            .rightOption, .leftOption, .rightCommand, .leftCommand,
+            .rightControl, .leftControl, .rightShift, .leftShift, .function,
+        ]
+        XCTAssertTrue(modifiers.allSatisfy(\.isModifier))
+        XCTAssertEqual(Set(modifiers).count, modifiers.count)
+        XCTAssertEqual(Set(modifiers.map(\.displayName)).count, modifiers.count)
+    }
+
+    func testOtherKeysAreNamedFromTheLayoutOrTheirLabel() {
+        XCTAssertFalse(DictationKey(keyCode: 0x69).isModifier)
+        XCTAssertEqual(DictationKey(keyCode: 0x69).displayName, "F13")
+        XCTAssertEqual(DictationKey(keyCode: 0x31, name: " ").displayName, "Space")
+        XCTAssertEqual(DictationKey(keyCode: 0x00, name: "q").displayName, "Q", "AZERTY prints Q on this key")
+        XCTAssertEqual(DictationKey(keyCode: 0x00).displayName, "A")
+        XCTAssertEqual(DictationKey(keyCode: 0x6E, name: "\u{F710}").displayName, "Key 110", "Private-use characters are not names")
+        XCTAssertFalse(DictationKey(keyCode: 0x00).isDown(modifierFlags: .max))
     }
 }
