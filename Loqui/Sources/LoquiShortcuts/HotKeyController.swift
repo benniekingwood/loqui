@@ -467,7 +467,7 @@ package extension DictationKey {
 /// working, including the Command-V that Loqui posts to paste.
 package final class DictationKeyTapContext: @unchecked Sendable {
     private enum KeyState {
-        case up
+        case idle
         case held(interrupted: Bool)
         case passingThrough
     }
@@ -477,7 +477,7 @@ package final class DictationKeyTapContext: @unchecked Sendable {
     private let lock = NSLock()
     private let key: DictationKey
     private let action: @MainActor @Sendable (DictationKeyPhase) -> Void
-    private var state = KeyState.up
+    private var state = KeyState.idle
 
     package init(key: DictationKey, action: @escaping @MainActor @Sendable (DictationKeyPhase) -> Void) {
         self.key = key
@@ -493,7 +493,7 @@ package final class DictationKeyTapContext: @unchecked Sendable {
                 return (false, .interrupted)
             }
             switch (state, isKeyDown) {
-            case (.up, true):
+            case (.idle, true):
                 if isRepeat || !flags.isDisjoint(with: Self.shortcutFlags) {
                     state = .passingThrough
                     return (false, nil)
@@ -503,12 +503,12 @@ package final class DictationKeyTapContext: @unchecked Sendable {
             case (.held, true):
                 return (true, nil)
             case (.held, false):
-                state = .up
+                state = .idle
                 return (true, .released)
             case (.passingThrough, false):
-                state = .up
+                state = .idle
                 return (false, nil)
-            case (.passingThrough, true), (.up, false):
+            case (.passingThrough, true), (.idle, false):
                 return (false, nil)
             }
         }
